@@ -20,12 +20,21 @@ async function createTenant({ name, slug, adminUsername, employeePrefix }) {
   await prisma.organizationMember.upsert({ where: { organizationId_userId: { organizationId: organization.id, userId: admin.id } }, update: { role: 'owner', status: 'active' }, create: { organizationId: organization.id, userId: admin.id, role: 'owner' } })
   await prisma.organizationSettings.upsert({ where: { organizationId: organization.id }, update: {}, create: { organizationId: organization.id } })
   await prisma.subscription.upsert({ where: { organizationId: organization.id }, update: {}, create: { organizationId: organization.id, planId: plan.id, status: 'trialing' } })
+  const canonicalPlan = await prisma.saaSPlan.upsert({ where: { code: 'starter' }, update: {}, create: { code: 'starter', name: 'Starter', features: { reports: true } } })
+  const canonicalOrganization = await prisma.saaSOrganization.upsert({ where: { slug }, update: { name }, create: { name, slug } })
+  await prisma.saaSSubscription.upsert({ where: { organizationId: canonicalOrganization.id }, update: {}, create: { organizationId: canonicalOrganization.id, planId: canonicalPlan.id, status: 'trialing' } })
+  const canonicalAdminMembership = await prisma.saaSOrganizationMembership.upsert({ where: { organizationId_userId: { organizationId: canonicalOrganization.id, userId: admin.id } }, update: { role: 'owner', status: 'active' }, create: { organizationId: canonicalOrganization.id, userId: admin.id, role: 'owner' } })
+  await prisma.reportingEmployee.upsert({ where: { membershipId: canonicalAdminMembership.id }, update: {}, create: { organizationId: canonicalOrganization.id, membershipId: canonicalAdminMembership.id, employeeCode: `${employeePrefix.toUpperCase()}-ADMIN`, displayName: admin.username } })
+
   for (let index = 1; index <= 3; index += 1) {
     const username = `${employeePrefix}${index}@staging.invalid`
     const employee = await prisma.user.upsert({ where: { username }, update: {}, create: { username, passwordHash: await bcrypt.hash(password, 12), role: 'employee', organizationId: organization.id, status: 'active' } })
     await prisma.organizationMember.upsert({ where: { organizationId_userId: { organizationId: organization.id, userId: employee.id } }, update: {}, create: { organizationId: organization.id, userId: employee.id, role: 'member', status: 'active' } })
     await prisma.employeeProfile.upsert({ where: { userId: employee.id }, update: {}, create: { userId: employee.id, employeeId: `${employeePrefix.toUpperCase()}-${String(index).padStart(3, '0')}`, position: 'Analyst' } })
     await prisma.dailyReport.upsert({ where: { userId_date: { userId: employee.id, date: '2026-09-07' } }, update: {}, create: { userId: employee.id, date: '2026-09-07', activityText: 'Synthetic staging report for tenant-isolation testing.' } })
+    const canonicalMembership = await prisma.saaSOrganizationMembership.upsert({ where: { organizationId_userId: { organizationId: canonicalOrganization.id, userId: employee.id } }, update: {}, create: { organizationId: canonicalOrganization.id, userId: employee.id, role: 'member', status: 'active' } })
+    const reportingEmployee = await prisma.reportingEmployee.upsert({ where: { membershipId: canonicalMembership.id }, update: {}, create: { organizationId: canonicalOrganization.id, membershipId: canonicalMembership.id, employeeCode: `${employeePrefix.toUpperCase()}-${String(index).padStart(3, '0')}`, displayName: username } })
+    await prisma.reportingDailyReport.upsert({ where: { employeeId_reportDate: { employeeId: reportingEmployee.id, reportDate: '2026-09-07' } }, update: {}, create: { organizationId: canonicalOrganization.id, employeeId: reportingEmployee.id, reportDate: '2026-09-07', activityText: 'Synthetic canonical reporting fixture.' } })
   }
 }
 
