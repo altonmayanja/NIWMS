@@ -67,10 +67,16 @@ Trial/grace/suspension/retention code exists and retention tests pass. Full `TRI
 - Credentials/secrets changed: **No**
 - Production destructive Prisma commands are now refused by the repository wrapper.
 
-## J. Final classification
+## J. Canonical commercial model decision
+
+### Option C — deliberate hybrid
+
+The mapped SaaS family is canonical for the commercial tenant, membership, plan, subscription, billing, audit, usage, and deletion lifecycle boundary. Reporting is a separate bounded commercial domain that must be introduced as new staging tables for employees, profiles, departments, positions, daily reports, monthly reports, and notifications. This is not a second organization architecture: reporting must reference the canonical SaaS membership and one identity adapter.
+
+The singular `Organization`, `OrganizationMember`, `Plan`, `Subscription`, and `AuditEvent` models are duplicate platform representations and must not be used for new commercial code. The singular reporting models are retained only as evidence of the current product workflow until generalized into the reporting domain. The live `neon_auth` schema remains an explicit identity boundary; no production identity migration was attempted.
 
 ### C — INCOMPLETE
 
 ## K. Next phase
 
-Provision one separate staging PostgreSQL database, run the guarded synthetic seed, then select and refactor to one canonical commercial model family before generating or applying any forward migration.
+Provision one separate staging PostgreSQL database, choose the identity adapter, add reporting-domain tables tied to canonical SaaS membership/user keys, and refactor all commercial routes through one adapter before generating or applying any forward migration.
