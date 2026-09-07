@@ -29,7 +29,9 @@ export async function syncOrganizationLifecycle(organizationId: string) {
     const existingEvent = await db.auditEvent.findFirst({ where: { organizationId, action, entityId: organizationId } })
     if (existingEvent) return organization
     return db.$transaction(async (tx) => {
-      const updated = await tx.organization.update({ where: { id: organizationId }, data: { status, graceStartedAt: organization.trialEndsAt, graceEndsAt, suspendedAt: status === 'suspended' ? now : undefined } })
+      const suspendedAt = status === 'suspended' ? now : undefined
+      const retentionEndsAt = suspendedAt ? new Date(suspendedAt.getTime() + 60 * 24 * 60 * 60 * 1000) : undefined
+      const updated = await tx.organization.update({ where: { id: organizationId }, data: { status, graceStartedAt: organization.trialEndsAt, graceEndsAt, suspendedAt, retentionEndsAt } })
       await tx.auditEvent.create({ data: { organizationId, action, entityType: 'Organization', entityId: organizationId } })
       await tx.auditEvent.create({ data: { organizationId, action: 'TRIAL_EXPIRED', entityType: 'Organization', entityId: organizationId } })
       return updated
