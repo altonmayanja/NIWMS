@@ -14,6 +14,8 @@ export async function POST(request: Request) {
     if (localHour < 16) continue
     const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: organization.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
     for (const user of organization.users) {
+      const submitted = await db.dailyReport.findUnique({ where: { userId_date: { userId: user.id, date: dateKey } }, select: { id: true } })
+      if (submitted) continue
       const exists = await db.notification.findFirst({ where: { userId: user.id, type: 'reminder', title: 'Daily report reminder', createdAt: { gte: new Date(`${dateKey}T00:00:00.000Z`) } } })
       if (exists) continue
       await db.notification.create({ data: { userId: user.id, title: 'Daily report reminder', message: 'Please submit your daily report before the reporting deadline.', type: 'reminder' } })

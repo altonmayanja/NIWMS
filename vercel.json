@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/internal/billing/sync",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/internal/reminders",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
