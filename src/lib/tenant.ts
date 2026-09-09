@@ -18,10 +18,17 @@ export async function getTenantContext(payload: JWTPayload | null): Promise<Tena
   if (!user || user.status !== 'active') return null
   if (user.role === 'super_admin') return null
   const membership = selectTenantMembership(user.memberships, payload.organizationId)
-  if (!membership) return null
-  const organization = await syncOrganizationLifecycle(membership.organizationId)
-  if (!organization || !canAccessLifecycleState(organization.status)) return null
-  return { ...payload, organizationId: membership.organizationId, membershipId: membership.id, organizationRole: membership.role }
+  if (membership) {
+    const organization = await syncOrganizationLifecycle(membership.organizationId)
+    if (!organization || !canAccessLifecycleState(organization.status)) return null
+    return { ...payload, organizationId: membership.organizationId, membershipId: membership.id, organizationRole: membership.role }
+  }
+  const canonicalMembership = await db.saaSOrganizationMembership.findFirst({
+    where: { userId: payload.userId, organizationId: payload.organizationId, status: 'active' },
+    select: { id: true, organizationId: true, role: true, organization: { select: { status: true } } },
+  })
+  if (!canonicalMembership || !canAccessLifecycleState(canonicalMembership.organization.status)) return null
+  return { ...payload, organizationId: canonicalMembership.organizationId, membershipId: canonicalMembership.id, organizationRole: canonicalMembership.role }
 }
 
 export async function requireTenant(payload: JWTPayload | null) {

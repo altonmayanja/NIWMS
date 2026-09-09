@@ -7,6 +7,11 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
+const syntheticOrganizations = [
+  { name: 'Synthetic Organization A', slug: 'synthetic-org-a', planCode: 'starter' },
+  { name: 'Synthetic Organization B', slug: 'synthetic-org-b', planCode: 'business' },
+];
+
 async function seed() {
   const prisma = new PrismaClient();
   const seedPassword = process.env.ADMIN_SEED_PASSWORD;
@@ -17,17 +22,82 @@ async function seed() {
 
   try {
     const passwordHash = await bcrypt.hash(seedPassword, 12);
-    await prisma.user.upsert({
+    const admin = await prisma.user.upsert({
       where: { username: 'admin@niltd.com' },
       update: { passwordHash, role: 'super_admin', status: 'active', organizationId: null },
-      create: {
-        username: 'admin@niltd.com',
-        passwordHash,
-        role: 'super_admin',
-        status: 'active',
-      },
+      create: { username: 'admin@niltd.com', passwordHash, role: 'super_admin', status: 'active' },
     });
-    console.log('Platform administrator seed completed.');
+
+    const plans = [
+      ['starter', 'Starter', 3000000, 10],
+      ['business', 'Business', 7500000, 30],
+      ['professional', 'Professional', 15000000, 75],
+      ['enterprise', 'Enterprise', 0, null],
+    ];
+    const planMap = new Map();
+    for (const [code, name, monthlyPriceCents, maxMembers] of plans) {
+      const plan = await prisma.saaSPlan.upsert({
+        where: { code },
+        update: { name, monthlyPriceCents, maxMembers, isActive: true },
+        create: { code, name, monthlyPriceCents, maxMembers, features: { reporting: true } },
+      });
+      planMap.set(code, plan);
+    }
+
+    for (const fixture of syntheticOrganizations) {
+      const organization = await prisma.saaSOrganization.upsert({
+        where: { slug: fixture.slug },
+        update: { name: fixture.name, status: 'trial' },
+        create: { name: fixture.name, slug: fixture.slug, status: 'trial' },
+      });
+      const plan = planMap.get(fixture.planCode);
+      await prisma.saaSSubscription.upsert({
+        where: { organizationId: organization.id },
+        update: { planId: plan.id, status: 'trialing', trialEndsAt: organization.trialEndsAt },
+        create: { organizationId: organization.id, planId: plan.id, status: 'trialing', trialEndsAt: organization.trialEndsAt },
+      });
+      await prisma.saaSOrganizationMembership.upsert({
+        where: { organizationId_userId: { organizationId: organization.id, userId: admin.id } },
+        update: { role: 'owner', status: 'active' },
+        create: { organizationId: organization.id, userId: admin.id, role: 'owner', status: 'active' },
+      });
+      const department = await prisma.reportingDepartment.upsert({
+        where: { organizationId_code: { organizationId: organization.id, code: 'OPS' } },
+        update: { name: 'Operations' },
+        create: { organizationId: organization.id, name: 'Operations', code: 'OPS' },
+      });
+      const position = await prisma.reportingPosition.upsert({
+        where: { organizationId_code: { organizationId: organization.id, code: 'IT-001' } },
+        update: { name: 'IT Support Specialist', departmentId: department.id },
+        create: { organizationId: organization.id, name: 'IT Support Specialist', code: 'IT-001', departmentId: department.id },
+      });
+
+      for (let index = 1; index <= 2; index += 1) {
+        const username = `${fixture.slug.replaceAll('-', '')}.employee${index}@example.test`;
+        const user = await prisma.user.upsert({
+          where: { username },
+          update: { passwordHash, role: 'employee', status: 'active' },
+          create: { username, passwordHash, role: 'employee', status: 'active' },
+        });
+        const membership = await prisma.saaSOrganizationMembership.upsert({
+          where: { organizationId_userId: { organizationId: organization.id, userId: user.id } },
+          update: { role: 'member', status: 'active' },
+          create: { organizationId: organization.id, userId: user.id, role: 'member', status: 'active' },
+        });
+        const employee = await prisma.reportingEmployee.upsert({
+          where: { membershipId: membership.id },
+          update: { displayName: username, departmentId: department.id, positionId: position.id, status: 'active' },
+          create: { organizationId: organization.id, membershipId: membership.id, employeeCode: `${fixture.planCode.toUpperCase()}-${index}`, displayName: username, departmentId: department.id, positionId: position.id },
+        });
+        await prisma.reportingDailyReport.upsert({
+          where: { employeeId_reportDate: { employeeId: employee.id, reportDate: '2026-09-09' } },
+          update: { activityText: 'Resolved technical support tickets and completed network maintenance.', comments: 'Synthetic certification fixture.' },
+          create: { organizationId: organization.id, employeeId: employee.id, reportDate: '2026-09-09', activityText: 'Resolved technical support tickets and completed network maintenance.', comments: 'Synthetic certification fixture.' },
+        });
+      }
+      await prisma.saaSAuditLog.create({ data: { organizationId: organization.id, actorUserId: admin.id, action: 'synthetic_seed', resourceType: 'organization', resourceId: organization.id, metadata: { source: 'certification' } } });
+    }
+    console.log('Platform and synthetic certification fixtures seeded.');
   } finally {
     await prisma.$disconnect();
   }

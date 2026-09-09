@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Organization, username, and password are required' }, { status: 400 })
     }
 
-    const organization = isPlatformAdmin
+    const legacyOrganization = isPlatformAdmin
       ? null
       : requestedOrganizationId
         ? await db.organization.findUnique({ where: { id: requestedOrganizationId } })
@@ -45,18 +45,32 @@ export async function POST(request: NextRequest) {
               ],
             },
           })
+    const canonicalMembership = !isPlatformAdmin
+      ? await db.saaSOrganizationMembership.findFirst({
+          where: {
+            userId: user.id,
+            status: 'active',
+            organization: requestedOrganizationId
+              ? { id: requestedOrganizationId }
+              : { OR: [{ slug: organizationInput.toLowerCase() }, { name: { equals: organizationInput, mode: 'insensitive' } }] },
+          },
+          include: { organization: true },
+        })
+      : null
+    const organization = canonicalMembership?.organization ?? legacyOrganization
 
     if (!isPlatformAdmin && (!organization || !['active', 'trial', 'grace'].includes(organization.status))) {
       return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
     }
 
-    const membership = organization
-      ? user.memberships.find((item) => item.organizationId === organization.id)
-      : undefined
-    const isLegacyOrganizationUser = Boolean(organization && organization.organizationType === 'LEGACY' && user.organizationId === organization.id)
-    if (!isPlatformAdmin && !membership && !isLegacyOrganizationUser) {
+    const membership = canonicalMembership ?? (legacyOrganization
+      ? user.memberships.find((item) => item.organizationId === legacyOrganization.id)
+      : undefined)
+    const isLegacyOrganizationUser = Boolean(legacyOrganization && legacyOrganization.organizationType === 'LEGACY' && user.organizationId === legacyOrganization.id)
+    if (!isPlatformAdmin && (!membership && !isLegacyOrganizationUser)) {
       return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
     }
+
 
     const isValid = await verifyPassword(password, user.passwordHash)
     if (!isValid) {
