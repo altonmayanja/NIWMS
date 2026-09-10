@@ -139,21 +139,44 @@ export async function POST(request: NextRequest) {
       include: { profile: true },
     })
 
-    // Create audit log
-    await db.auditLog.create({
+    const canonicalMembership = await db.saaSOrganizationMembership.create({
       data: {
-        userId: payload.userId,
+        organizationId: context.organizationId,
+        userId: user.id,
+        role: 'member',
+        status: 'active',
+      },
+    })
+    const positionCode = position.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const canonicalPosition = await db.reportingPosition.upsert({
+      where: { organizationId_code: { organizationId: context.organizationId, code: positionCode } },
+      update: { name: position },
+      create: { organizationId: context.organizationId, name: position, code: positionCode },
+    })
+    const canonicalEmployee = await db.reportingEmployee.create({
+      data: {
+        organizationId: context.organizationId,
+        membershipId: canonicalMembership.id,
+        employeeCode: employeeId,
+        displayName: username,
+        positionId: canonicalPosition.id,
+        status: 'active',
+      },
+      include: { position: true, membership: true },
+    })
+
+    await db.saaSAuditLog.create({
+      data: {
+        organizationId: context.organizationId,
+        actorUserId: payload.userId,
         action: 'employee_created',
-        details: JSON.stringify({
-          targetUserId: user.id,
-          username: user.username,
-          employeeId,
-          position,
-        }),
+        resourceType: 'reporting_employee',
+        resourceId: canonicalEmployee.id,
+        metadata: { userId: user.id, username, employeeId, position },
       },
     })
 
-    return NextResponse.json(user, { status: 201 })
+    return NextResponse.json({ ...canonicalEmployee, user }, { status: 201 })
   } catch (error) {
     console.error('Create employee error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
