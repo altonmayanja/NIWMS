@@ -1,128 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authenticateRequest, forbiddenResponse } from '@/lib/auth'
+import { requireOrganizationAdmin } from '@/lib/tenant'
 import { db } from '@/lib/db'
-import { authenticateAdmin, forbiddenResponse } from '@/lib/auth'
 
-// POST /api/admin/notifications - Send a notification (to specific user(s) or broadcast)
+const validTypes = ['info', 'reminder', 'warning', 'success', 'announcement']
+
 export async function POST(request: NextRequest) {
   try {
-    const payload = await authenticateAdmin(request)
+    const payload = await authenticateRequest(request)
     if (!payload) return forbiddenResponse()
-
+    const { context, response } = await requireOrganizationAdmin(payload)
+    if (!context) return response
     const body = await request.json()
-    const { title, message, type, userIds, broadcast } = body
-
-    if (!title || !title.trim()) {
-      return NextResponse.json({ error: 'Title is required' }, { status: 400 })
-    }
-    if (!message || !message.trim()) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 })
-    }
-
-    const validTypes = ['info', 'reminder', 'warning', 'success', 'announcement']
+    const { title, message, type, employeeIds, broadcast } = body
+    if (typeof title !== 'string' || !title.trim()) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
+    if (typeof message !== 'string' || !message.trim()) return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     const notifType = validTypes.includes(type) ? type : 'info'
-
-    // Broadcast to all employees
-    if (broadcast === true) {
-      const notification = await db.notification.create({
-        data: {
-          title: title.trim(),
-          message: message.trim(),
-          type: notifType,
-          userId: null, // null = broadcast
-        },
-      })
-
-      // Audit log
-      await db.auditLog.create({
-        data: {
-          userId: payload.userId,
-          action: 'notification_broadcast',
-          details: JSON.stringify({ notificationId: notification.id, title: title.trim(), type: notifType }),
-        },
-      })
-
-      return NextResponse.json({
-        success: true,
-        notification,
-        sentTo: 'all_employees',
-      }, { status: 201 })
-    }
-
-    // Send to specific users
-    if (userIds && Array.isArray(userIds) && userIds.length > 0) {
-      // Validate users exist
-      const users = await db.user.findMany({
-        where: { id: { in: userIds } },
-        select: { id: true, username: true },
-      })
-
-      if (users.length === 0) {
-        return NextResponse.json({ error: 'No valid users found' }, { status: 400 })
-      }
-
-      const notifications = await db.notification.createMany({
-        data: users.map((u) => ({
-          userId: u.id,
-          title: title.trim(),
-          message: message.trim(),
-          type: notifType,
-        })),
-      })
-
-      // Audit log
-      await db.auditLog.create({
-        data: {
-          userId: payload.userId,
-          action: 'notification_sent',
-          details: JSON.stringify({
-            title: title.trim(),
-            type: notifType,
-            recipientCount: users.length,
-            recipientIds: users.map((u) => u.id),
-          }),
-        },
-      })
-
-      return NextResponse.json({
-        success: true,
-        sentCount: notifications.count,
-        recipients: users.map((u) => u.username),
-      }, { status: 201 })
-    }
-
-    return NextResponse.json(
-      { error: 'Provide either userIds array or broadcast: true' },
-      { status: 400 }
-    )
+    const employees = broadcast === true ? await db.reportingEmployee.findMany({ where: { organizationId: context.organizationId, status: 'active' }, select: { id: true } }) : await db.reportingEmployee.findMany({ where: { organizationId: context.organizationId, id: { in: Array.isArray(employeeIds) ? employeeIds : [] }, status: 'active' }, select: { id: true } })
+    if (broadcast !== true && employees.length === 0) return NextResponse.json({ error: 'No valid employees found' }, { status: 400 })
+    const targets = broadcast === true ? [null] : employees.map((employee) => employee.id)
+    await db.reportingNotification.createMany({ data: targets.map((employeeId) => ({ organizationId: context.organizationId, employeeId, title: title.trim(), message: message.trim(), type: notifType })) })
+    await db.saaSAuditLog.create({ data: { organizationId: context.organizationId, actorUserId: payload.userId, action: broadcast === true ? 'notification_broadcast' : 'notification_sent', resourceType: 'reporting_notification', metadata: { recipientCount: broadcast === true ? employees.length : targets.length, type: notifType } } })
+    return NextResponse.json({ success: true, sentCount: broadcast === true ? employees.length : targets.length, sentTo: broadcast === true ? 'all_employees' : 'selected_employees' }, { status: 201 })
   } catch (error) {
     console.error('Admin send notification error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// GET /api/admin/notifications - List all notifications (admin view)
 export async function GET(request: NextRequest) {
   try {
-    const payload = await authenticateAdmin(request)
+    const payload = await authenticateRequest(request)
     if (!payload) return forbiddenResponse()
-
+    const { context, response } = await requireOrganizationAdmin(payload)
+    if (!context) return response
     const { searchParams } = new URL(request.url)
-    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)))
-    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10))
-
-    const notifications = await db.notification.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
-      include: {
-        user: {
-          select: { username: true, profile: { select: { employeeId: true, position: true } } },
-        },
-      },
-    })
-
-    const total = await db.notification.count()
-
+    const limit = Math.min(100, Math.max(1, Number.parseInt(searchParams.get('limit') || '50', 10) || 50))
+    const offset = Math.max(0, Number.parseInt(searchParams.get('offset') || '0', 10) || 0)
+    const where = { organizationId: context.organizationId }
+    const [notifications, total] = await Promise.all([db.reportingNotification.findMany({ where, orderBy: { createdAt: 'desc' }, take: limit, skip: offset, include: { employee: { include: { membership: true, position: true } } } }), db.reportingNotification.count({ where })])
     return NextResponse.json({ notifications, total })
   } catch (error) {
     console.error('Admin list notifications error:', error)
