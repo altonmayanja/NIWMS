@@ -3,7 +3,6 @@ import { db } from '@/lib/db'
 import { authenticateAdmin, forbiddenResponse } from '@/lib/auth'
 import { generateBulkReports } from '@/lib/report-service'
 import { checkRateLimit, getRateLimitErrorMessage } from '@/lib/rate-limiter'
-import { Prisma } from '@prisma/client'
 import { getTenantContext } from '@/lib/tenant'
 
 // POST /api/admin/reports/monthly/bulk - Bulk generate monthly reports
@@ -31,19 +30,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Build employee filter
-    const where: Prisma.UserWhereInput = {
+    const where = {
       organizationId: tenant.organizationId,
-      role: 'employee',
+      ...(employeeStatus ? { status: employeeStatus } : {}),
     }
 
-    // Filter by employee status
-    if (employeeStatus) {
-      where.status = employeeStatus
-    }
-
-    let employees = await db.user.findMany({
+    let employees = await db.reportingEmployee.findMany({
       where,
-      select: { id: true },
+      select: { membership: { select: { userId: true } } },
     })
 
     if (employees.length === 0) {
@@ -55,15 +49,16 @@ export async function POST(request: NextRequest) {
 
     // If onlyMissing, exclude employees who already have a report for this month
     if (onlyMissing) {
-      const existingReports = await db.monthlyReport.findMany({
+      const existingReports = await db.reportingMonthlyReport.findMany({
         where: {
+          organizationId: tenant.organizationId,
           month,
-          userId: { in: employees.map((e) => e.id) },
+          employee: { membership: { userId: { in: employees.map((e) => e.membership.userId) } } },
         },
-        select: { userId: true },
+        select: { employee: { select: { membership: { select: { userId: true } } } } },
       })
-      const existingUserIds = new Set(existingReports.map((r) => r.userId))
-      employees = employees.filter((e) => !existingUserIds.has(e.id))
+      const existingUserIds = new Set(existingReports.map((r) => r.employee.membership.userId))
+      employees = employees.filter((e) => !existingUserIds.has(e.membership.userId))
     }
 
     if (employees.length === 0) {
@@ -74,7 +69,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    const userIds = employees.map((e) => e.id)
+    const userIds = employees.map((e) => e.membership.userId)
 
     const results = await generateBulkReports({
       organizationId: tenant.organizationId,
