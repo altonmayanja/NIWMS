@@ -32,33 +32,27 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch all reports for the month with user data
-    const reports = await db.dailyReport.findMany({
-      where: { date: { startsWith: month }, user: { organizationId: context.organizationId } },
+    const reports = await db.reportingDailyReport.findMany({
+      where: { organizationId: context.organizationId, reportDate: { startsWith: month } },
       include: {
-        user: {
-          select: {
-            username: true,
-            profile: {
-              select: {
-                employeeId: true,
-                position: true,
-              },
-            },
-          },
+        employee: {
+          include: { position: true },
         },
       },
       orderBy: [
-        { user: { username: 'asc' } },
-        { date: 'asc' },
+        { employee: { displayName: 'asc' } },
+        { reportDate: 'asc' },
       ],
     })
 
     // Create audit log
-    await db.auditLog.create({
+    await db.saaSAuditLog.create({
       data: {
-        userId: payload.userId,
-        action: 'export',
-        details: JSON.stringify({ month, reportCount: reports.length }),
+        organizationId: context.organizationId,
+        actorUserId: payload.userId,
+        action: 'report_exported',
+        resourceType: 'reporting_daily_report',
+        metadata: { month, reportCount: reports.length },
       },
     })
 
@@ -73,10 +67,10 @@ export async function GET(request: NextRequest) {
     // Group reports by user for summary
     const userReports: Record<string, typeof reports> = {}
     for (const report of reports) {
-      if (!userReports[report.userId]) {
-        userReports[report.userId] = []
+      if (!userReports[report.employeeId]) {
+        userReports[report.employeeId] = []
       }
-      userReports[report.userId].push(report)
+      userReports[report.employeeId].push(report)
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -97,10 +91,10 @@ export async function GET(request: NextRequest) {
 
     for (const report of reports) {
       detailSheet.addRow({
-        date: report.date,
-        employee: report.user.username,
-        employeeId: report.user.profile?.employeeId || 'N/A',
-        position: report.user.profile?.position || 'N/A',
+        date: report.reportDate,
+        employee: report.employee.displayName,
+        employeeId: report.employee.employeeCode,
+        position: report.employee.position?.name || 'N/A',
         timeIn: report.timeIn || '',
         timeOut: report.timeOut || '',
         activity: report.activityText,
@@ -150,12 +144,12 @@ export async function GET(request: NextRequest) {
       const lastReport = userReportList[userReportList.length - 1]
 
       summarySheet.addRow({
-        employee: firstReport.user.username,
-        employeeId: firstReport.user.profile?.employeeId || 'N/A',
-        position: firstReport.user.profile?.position || 'N/A',
+        employee: firstReport.employee.displayName,
+        employeeId: firstReport.employee.employeeCode,
+        position: firstReport.employee.position?.name || 'N/A',
         totalReports: userReportList.length,
-        firstReport: firstReport.date,
-        lastReport: lastReport.date,
+        firstReport: firstReport.reportDate,
+        lastReport: lastReport.reportDate,
       })
     }
 
