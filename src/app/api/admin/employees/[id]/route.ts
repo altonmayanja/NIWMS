@@ -129,7 +129,9 @@ export async function DELETE(
 
     const { id } = await params
 
-    const user = await db.user.findUnique({ where: { id } })
+    const user = await db.user.findUnique({
+      where: { id, organizationId: context.organizationId },
+    })
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
