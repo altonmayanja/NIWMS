@@ -30,7 +30,7 @@ export async function PATCH(
 
     const user = await db.user.findUnique({
       where: { id, organizationId: context.organizationId },
-      include: { profile: true },
+      include: { profile: true, memberships: true },
     })
 
     if (!user) {
@@ -68,7 +68,7 @@ export async function PATCH(
 
     // Update employee ID
     if (employeeId && typeof employeeId === 'string' && employeeId.trim()) {
-      const existing = await db.employeeProfile.findFirst({ where: { employeeId: employeeId.trim(), NOT: { userId: id } } })
+      const existing = await db.employeeProfile.findFirst({ where: { employeeId: employeeId.trim(), user: { organizationId: context.organizationId }, NOT: { userId: id } } })
       if (existing) {
         return NextResponse.json({ error: 'Employee ID is already taken' }, { status: 409 })
       }
@@ -95,12 +95,36 @@ export async function PATCH(
       })
     }
 
-    // Create audit log
-    await db.auditLog.create({
+    const canonicalEmployee = await db.reportingEmployee.findFirst({
+      where: { organizationId: context.organizationId, membership: { userId: id } },
+    })
+    if (canonicalEmployee) {
+      const canonicalPosition = position
+        ? await db.reportingPosition.upsert({
+            where: { organizationId_code: { organizationId: context.organizationId, code: position.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') } },
+            update: { name: position },
+            create: { organizationId: context.organizationId, name: position, code: position.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') },
+          })
+        : null
+      await db.reportingEmployee.update({
+        where: { id: canonicalEmployee.id },
+        data: {
+          ...(username ? { displayName: username.trim() } : {}),
+          ...(employeeId ? { employeeCode: employeeId.trim() } : {}),
+          ...(status ? { status } : {}),
+          ...(canonicalPosition ? { positionId: canonicalPosition.id } : {}),
+        },
+      })
+    }
+
+    await db.saaSAuditLog.create({
       data: {
-        userId: payload.userId,
+        organizationId: context.organizationId,
+        actorUserId: payload.userId,
         action: 'employee_updated',
-        details: JSON.stringify({ targetUserId: id, updates, profileUpdates }),
+        resourceType: 'reporting_employee',
+        resourceId: canonicalEmployee?.id ?? id,
+        metadata: JSON.parse(JSON.stringify({ targetUserId: id, updates, profileUpdates })),
       },
     })
 
@@ -143,14 +167,24 @@ export async function DELETE(
       )
     }
 
+    const canonicalEmployee = await db.reportingEmployee.findFirst({
+      where: { organizationId: context.organizationId, membership: { userId: id } },
+      select: { id: true, membershipId: true },
+    })
+    if (canonicalEmployee) {
+      await db.reportingEmployee.delete({ where: { id: canonicalEmployee.id } })
+      await db.saaSOrganizationMembership.delete({ where: { id: canonicalEmployee.membershipId } })
+    }
     await db.user.delete({ where: { id, organizationId: context.organizationId } })
 
-    // Create audit log
-    await db.auditLog.create({
+    await db.saaSAuditLog.create({
       data: {
-        userId: payload.userId,
+        organizationId: context.organizationId,
+        actorUserId: payload.userId,
         action: 'employee_deleted',
-        details: JSON.stringify({ targetUserId: id, username: user.username }),
+        resourceType: 'reporting_employee',
+        resourceId: canonicalEmployee?.id ?? id,
+        metadata: { targetUserId: id, username: user.username },
       },
     })
 

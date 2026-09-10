@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check username uniqueness
-    const existingUser = await db.user.findUnique({ where: { username } })
+    const existingUser = await db.user.findFirst({ where: { username, organizationId: context.organizationId } })
     if (existingUser) {
       return NextResponse.json(
         { error: 'Username already exists' },
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check employeeId uniqueness
-    const existingProfile = await db.employeeProfile.findUnique({ where: { employeeId } })
+    const existingProfile = await db.employeeProfile.findFirst({ where: { employeeId, user: { organizationId: context.organizationId } } })
     if (existingProfile) {
       return NextResponse.json(
         { error: 'Employee ID already exists' },
@@ -139,8 +139,10 @@ export async function POST(request: NextRequest) {
       include: { profile: true },
     })
 
-    const canonicalMembership = await db.saaSOrganizationMembership.create({
-      data: {
+    const canonicalMembership = await db.saaSOrganizationMembership.upsert({
+      where: { organizationId_userId: { organizationId: context.organizationId, userId: user.id } },
+      update: { role: 'member', status: 'active' },
+      create: {
         organizationId: context.organizationId,
         userId: user.id,
         role: 'member',
