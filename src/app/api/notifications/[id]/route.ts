@@ -1,34 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { authenticateRequest, unauthorizedResponse } from '@/lib/auth'
+import { getTenantContext } from '@/lib/tenant'
 
-// PATCH /api/notifications/[id] - Mark a single notification as read
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+async function resolveNotification(request: NextRequest, id: string) {
+  const payload = await authenticateRequest(request)
+  if (!payload) return { response: unauthorizedResponse() }
+  const tenant = await getTenantContext(payload)
+  if (!tenant) return { response: unauthorizedResponse('Active organization membership required') }
+  const employee = await db.reportingEmployee.findFirst({ where: { organizationId: tenant.organizationId, membership: { userId: payload.userId, status: 'active' } } })
+  const notification = employee ? await db.reportingNotification.findFirst({ where: { id, organizationId: tenant.organizationId, OR: [{ employeeId: employee.id }, { employeeId: null }] } }) : null
+  if (!notification) return { response: NextResponse.json({ error: 'Notification not found' }, { status: 404 }) }
+  return { payload, tenant, employee, notification }
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const payload = await authenticateRequest(request)
-    if (!payload) return unauthorizedResponse()
-
-    const { id } = await params
-
-    // Ensure the notification belongs to the user or is a broadcast
-    const notification = await db.notification.findFirst({
-      where: { id, OR: [{ userId: payload.userId }, { userId: null }] },
-    })
-
-    if (!notification) {
-      return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
-    }
-
-    if (notification.userId && notification.userId !== payload.userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-
-    await db.notification.updateMany({
-      where: { id, OR: [{ userId: payload.userId }, { userId: null }] },
-      data: { read: true },
-    })
-
+    const resolved = await resolveNotification(request, (await params).id)
+    if ('response' in resolved) return resolved.response
+    if (resolved.notification.employeeId !== resolved.employee?.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    await db.reportingNotification.update({ where: { id: resolved.notification.id }, data: { read: true } })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Mark notification read error:', error)
@@ -36,34 +27,12 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/notifications/[id] - Delete a notification
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const payload = await authenticateRequest(request)
-    if (!payload) return unauthorizedResponse()
-
-    const { id } = await params
-
-    const notification = await db.notification.findFirst({
-      where: { id, OR: [{ userId: payload.userId }, { userId: null }] },
-    })
-
-    if (!notification) {
-      return NextResponse.json({ error: 'Notification not found' }, { status: 404 })
-    }
-
-    // Only allow deleting own notifications (not broadcasts)
-    if (notification.userId !== payload.userId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    await db.notification.deleteMany({
-      where: { id, userId: payload.userId },
-    })
-
+    const resolved = await resolveNotification(request, (await params).id)
+    if ('response' in resolved) return resolved.response
+    if (resolved.notification.employeeId !== resolved.employee?.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    await db.reportingNotification.delete({ where: { id: resolved.notification.id } })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Delete notification error:', error)
