@@ -13,8 +13,12 @@ export async function GET(request: NextRequest) {
     const tenant = await getTenantContext(payload)
     if (!tenant) return unauthorizedResponse('Active organization membership required')
 
-    const reports = await db.monthlyReport.findMany({
-      where: { userId: payload.userId, user: { organizationId: tenant.organizationId } },
+    const employee = await db.reportingEmployee.findFirst({
+      where: { organizationId: tenant.organizationId, membership: { userId: payload.userId, status: 'active' } },
+    })
+    if (!employee) return NextResponse.json([])
+    const reports = await db.reportingMonthlyReport.findMany({
+      where: { organizationId: tenant.organizationId, employeeId: employee.id },
       orderBy: { month: 'desc' },
     })
 
@@ -26,8 +30,8 @@ export async function GET(request: NextRequest) {
       submissionRate: r.submissionRate,
       status: r.status,
       summary: r.summary,
-      achievements: JSON.parse(r.achievements || '[]'),
-      categoryBreakdown: JSON.parse(r.categoryBreakdown || '[]'),
+      achievements: r.achievements,
+      categoryBreakdown: r.categoryBreakdown,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
       approvedAt: r.approvedAt,
@@ -67,8 +71,12 @@ export async function POST(request: NextRequest) {
     try {
       // Check for existing report before deciding generatedBy/force
       let isRegeneration = false
-      const existing = await db.monthlyReport.findUnique({
-        where: { userId_month: { userId: payload.userId, month } },
+      const employee = await db.reportingEmployee.findFirst({
+        where: { organizationId: tenant.organizationId, membership: { userId: payload.userId, status: 'active' } },
+      })
+      if (!employee) return NextResponse.json({ error: 'Employee profile not found' }, { status: 404 })
+      const existing = await db.reportingMonthlyReport.findUnique({
+        where: { employeeId_month: { employeeId: employee.id, month } },
       })
 
       if (existing) {
