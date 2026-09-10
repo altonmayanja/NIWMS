@@ -112,25 +112,7 @@
   }
 }
 
-/* Natural Intellects motion and product visual system */
-@keyframes auth-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
-}
-@keyframes auth-bar-pulse {
-  0%, 100% { transform: scaleY(.92); transform-origin: bottom; }
-  50% { transform: scaleY(1); transform-origin: bottom; }
-}
-.auth-float { animation: auth-float 7s ease-in-out infinite; }
-.auth-bar { animation: auth-bar-pulse 2.8s ease-in-out infinite; transform-origin: bottom; }
-.auth-grid {
-  background-image: linear-gradient(rgba(196, 208, 197, .13) 1px, transparent 1px), linear-gradient(90deg, rgba(196, 208, 197, .13) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: linear-gradient(to bottom, black, transparent 86%);
-}
-@media (prefers-reduced-motion: reduce) {
-  .auth-float, .auth-bar { animation: none; }
-}
+/* Natural Intellects product visual system */
 
 /* Custom Scrollbar */
 @layer utilities {
