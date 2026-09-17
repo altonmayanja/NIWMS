@@ -278,7 +278,8 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
 // =====================================================================
 
 function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
-  const [username, setUsername] = useState('')
+  const [organization, setOrganization] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showLoginPwd, setShowLoginPwd] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -292,7 +293,7 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
     setError('')
     setLoading(true)
     try {
-      const data = await apiPost<{ token: string; user: User }>('/api/auth/login', { username, password })
+      const data = await apiPost<{ token: string; user: User }>('/api/auth/login', { organization, username: email, password })
       login(data.token, data.user)
       toast.success(t('login.welcome'))
     } catch (err) {
@@ -323,8 +324,8 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
             <div className="mx-auto w-16 h-16 rounded-2xl overflow-hidden mb-5 shadow-lg">
               <Image src="/logo.png" alt="Natural Intellects logo" width={64} height={64} className="w-full h-full object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('login.title')}</h1>
-            <p className="text-sm text-gray-500 mt-1">{t('login.subtitle')}</p>
+  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Sign in to your organization</h1>
+  <p className="text-sm text-gray-500 mt-1">Enter your company, email, and password to continue.</p>
           </div>
 
           <CardContent className="px-8 pb-8 pt-2">
@@ -340,15 +341,28 @@ function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
                 </motion.div>
               )}
 
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-gray-700">{t('login.username')}</Label>
+  <div className="space-y-2">
+  <Label htmlFor="organization" className="text-sm font-medium text-gray-700">Company / Organization</Label>
+  <Input
+  id="organization"
+  placeholder="Company name or organization code"
+  value={organization}
+  onChange={(e) => setOrganization(e.target.value)}
+  required
+  className="h-11 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
+  />
+  </div>
+
+  <div className="space-y-2">
+  <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
                 <div className="relative">
                   <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    id="username"
-                    placeholder={t('login.usernamePlaceholder')}
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    id="email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                     className="h-11 pl-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
                   />
