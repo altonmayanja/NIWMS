@@ -198,7 +198,7 @@ export async function GET(
     // ══════════════════════════════════════════════════════════════
     // SHEET 5: MANAGER NOTES + APPROVAL
     // ══════════════════════════════════════════════════════════════
-    const s5 = wb.addWorksheet('Manager Notes & Approval')
+    const s5 = wb.addWorksheet('Manager Notes')
     s5.columns = [{ header: 'Section', key: 'section', width: 30 }, { header: 'Content', key: 'content', width: 70 }]
 
     s5.addRow({ section: 'MANAGER COMMENTS', content: '' })
