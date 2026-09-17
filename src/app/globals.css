@@ -54,37 +54,37 @@
 
 :root {
   --radius: 0.625rem;
-  --background: #F5F7FA;
-  --foreground: #111827;
-  --card: #FFFFFF;
-  --card-foreground: #111827;
-  --popover: #FFFFFF;
-  --popover-foreground: #111827;
-  --primary: #0B1F6D;
+  --background: #f4f6f8;
+  --foreground: #17212b;
+  --card: #ffffff;
+  --card-foreground: #17212b;
+  --popover: #ffffff;
+  --popover-foreground: #17212b;
+  --primary: #123c36;
   --primary-foreground: #ffffff;
-  --secondary: #F5F7FA;
-  --secondary-foreground: #111827;
-  --muted: #F5F7FA;
-  --muted-foreground: #6b7280;
-  --accent: #F5F7FA;
-  --accent-foreground: #111827;
-  --destructive: #dc2626;
-  --border: #E5E7EB;
-  --input: #E5E7EB;
-  --ring: #0B1F6D;
-  --chart-1: #0B1F6D;
-  --chart-2: #1e3a8a;
-  --chart-3: #3b82f6;
-  --chart-4: #D94B2B;
-  --chart-5: #F4B400;
-  --sidebar: #0B1F6D;
-  --sidebar-foreground: #cbd5e1;
+  --secondary: #e9f0ee;
+  --secondary-foreground: #173b35;
+  --muted: #eef2f1;
+  --muted-foreground: #64716f;
+  --accent: #e9f0ee;
+  --accent-foreground: #173b35;
+  --destructive: #b9433f;
+  --border: #dce4e1;
+  --input: #d2ddda;
+  --ring: #c47b32;
+  --chart-1: #123c36;
+  --chart-2: #38766b;
+  --chart-3: #c47b32;
+  --chart-4: #b9433f;
+  --chart-5: #7d958f;
+  --sidebar: #102f2b;
+  --sidebar-foreground: #d5e3df;
   --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #0B1F6D;
+  --sidebar-primary-foreground: #102f2b;
   --sidebar-accent: rgba(255, 255, 255, 0.1);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #0B1F6D;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: #c47b32;
 }
 
 /* UFMI Design System - Base */
@@ -147,7 +147,32 @@
 
 /* UFMI Card Styles */
 .ufmi-card {
-  @apply bg-white rounded-2xl border border-ufmi-border;
+  @apply bg-white rounded-xl border border-ufmi-border;
+  box-shadow: 0 1px 2px rgba(16, 47, 43, 0.04), 0 8px 24px rgba(16, 47, 43, 0.035);
+}
+
+/* Product shell refinements: compact, editorial, and information-dense. */
+.product-shell {
+  background: #f4f6f8;
+}
+.product-shell main {
+  min-width: 0;
+}
+.product-shell button,
+.product-shell input,
+.product-shell textarea,
+.product-shell select {
+  transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.product-shell button:active {
+  transform: translateY(1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-shell button,
+  .product-shell input,
+  .product-shell textarea,
+  .product-shell select { transition: none; }
+  .product-shell button:active { transform: none; }
 }
 
 .ufmi-card-dark {

@@ -133,7 +133,7 @@ const queryClient = new QueryClient({
 // =====================================================================
 
 const adminNavItems: { key: AdminView; label: string; icon: React.ReactNode }[] = [
-  { key: 'overview', label: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> },
+  { key: 'overview', label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" /> },
   { key: 'employees', label: 'Employees', icon: <Users className="h-4 w-4" /> },
   { key: 'reports', label: 'Reports', icon: <FileText className="h-4 w-4" /> },
   { key: 'monthly-reports', label: 'Monthly Reports', icon: <BarChart3 className="h-4 w-4" /> },
@@ -590,7 +590,7 @@ function Sidebar({
       className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 z-40 transition-all duration-300"
       style={{
         width: collapsed ? '72px' : '250px',
-        background: '#0B1F6D',
+        background: '#102f2b',
       }}
     >
       {/* Logo */}
@@ -635,7 +635,7 @@ function Sidebar({
         {isAdmin && (
           <button
             onClick={() => onNavigate('overview')}
-            className={`w-full flex items-center gap-3 rounded-lg text-sm font-medium text-white bg-[#D94B2B]/90 hover:bg-[#D94B2B] transition-all ${
+            className={`w-full flex items-center gap-3 rounded-lg text-sm font-medium text-white bg-[#c47b32]/90 hover:bg-[#c47b32] transition-all ${
               collapsed ? 'justify-center px-2 py-2.5' : 'px-3 py-2.5'
             }`}
             title={collapsed ? t('nav.submitReport') : undefined}
@@ -877,7 +877,7 @@ function TopHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-30 w-full h-16 bg-white border-b border-gray-200/80 flex items-center px-4 lg:px-6 gap-4">
+      <header className="sticky top-0 z-30 w-full h-[68px] bg-white/95 backdrop-blur border-b border-[#dce4e1] flex items-center px-4 lg:px-8 gap-4">
         {/* Mobile menu button */}
         <button
           onClick={onMenuToggle}
@@ -4103,7 +4103,7 @@ export default function Home() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-[#F5F7FA]">
+      <div className="product-shell min-h-screen bg-[#f4f6f8]">
         {/* Help Center Dialog */}
         <HelpCenterDialog open={helpOpen} onOpenChange={setHelpOpen} />
 
