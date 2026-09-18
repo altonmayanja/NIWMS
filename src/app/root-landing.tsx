@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import {
   ArrowRight,
   BarChart3,
@@ -59,6 +59,7 @@ export default function MarketingPage() {
   const [activeDemo, setActiveDemo] = useState(0)
   const [annual, setAnnual] = useState(false)
   const [activeSection, setActiveSection] = useState('features')
+  const [pointer, setPointer] = useState({ x: 50, y: 20 })
 
   useEffect(() => {
     const sections = ['features', 'how-it-works', 'security', 'pricing']
@@ -85,7 +86,7 @@ export default function MarketingPage() {
   }, [])
 
   return (
-    <main className="marketing-shell min-h-screen overflow-hidden bg-[#f4f6f8] text-[#17211b]">
+    <main className="marketing-shell min-h-screen overflow-hidden bg-[#f4f6f8] text-[#17211b]" style={{ '--pointer-x': `${pointer.x}%`, '--pointer-y': `${pointer.y}%` } as CSSProperties} onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); setPointer({ x: ((event.clientX - rect.left) / rect.width) * 100, y: ((event.clientY - rect.top) / rect.height) * 100 }) }}>
       <header className="reveal reveal-down sticky top-0 z-30 border-b border-[#dce4e1] bg-[#f4f6f8]/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
           <Link href="/" className="flex items-center gap-3" aria-label="Natural Intellects home">
@@ -103,7 +104,7 @@ export default function MarketingPage() {
 
       <section className="reveal hero-reveal mx-auto grid max-w-7xl items-center gap-12 px-5 pb-20 pt-16 lg:grid-cols-[1.02fr_.98fr] lg:px-8 lg:pb-28 lg:pt-24">
         <div><p className="mb-6 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]"><span className="h-px w-8 bg-[#c47b32]" /> Workforce clarity, built in</p><h1 className="max-w-3xl text-balance text-5xl font-semibold leading-[1.02] tracking-[-0.055em] text-[#123c36] sm:text-6xl lg:text-7xl">Make every day of work <span className="text-[#c47b32]">visible.</span></h1><p className="mt-7 max-w-xl text-pretty text-lg leading-8 text-[#64716f]">Natural Intellects turns daily employee activity into structured reports, management visibility, and actionable workforce insight.</p><div className="mt-9 flex flex-col gap-3 sm:flex-row"><Link href="/start-free-trial" className="inline-flex items-center justify-center rounded-full bg-[#c47b32] px-6 py-3.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5">Start free trial <ArrowRight className="ml-2 h-4 w-4" /></Link><a href="#features" className="inline-flex items-center justify-center rounded-full border border-[#d2ddda] px-6 py-3.5 text-sm font-semibold text-[#123c36] hover:bg-[#e9f0ee]">Explore the platform</a></div><p className="mt-5 text-xs text-[#738078]">14-day trial · No payment required · Built for distributed teams</p></div>
-        <div className="border border-[#cbd6cb] bg-[#123c36] p-4 shadow-2xl shadow-[#123c36]/15 sm:p-6"><div className="bg-[#f4f6f8] p-5 sm:p-7"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#829086]">Manager view</p><h2 className="mt-2 text-xl font-semibold text-[#123c36]">A practical view of reporting</h2></div><span className="border border-[#d2ddda] px-3 py-1 text-xs font-medium text-[#64716f]">Product preview</span></div><div className="mt-8 border-y border-[#dce4e1] py-8"><p className="text-sm font-semibold text-[#123c36]">Bring your organization&apos;s data into focus.</p><p className="mt-2 max-w-md text-sm leading-6 text-[#64716f]">Once connected, managers can see reporting health, recent activity, and monthly summaries in one place.</p><div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold text-[#356247]"><span className="bg-[#e9f0ee] px-3 py-2">Daily submissions</span><span className="bg-[#e9f0ee] px-3 py-2">Team activity</span><span className="bg-[#e9f0ee] px-3 py-2">Monthly insight</span></div></div><div className="mt-5 flex items-center gap-2 text-sm text-[#64716f]"><Check className="h-4 w-4 text-[#356247]" /> No sample metrics—your workspace stays grounded in your data.</div></div></div>
+        <div className="hero-preview border border-[#cbd6cb] bg-[#123c36] p-3 shadow-2xl shadow-[#123c36]/15 sm:p-5"><div className="bg-[#f4f6f8] p-5 sm:p-7"><div className="flex items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#829086]">Manager view</p><h2 className="mt-2 text-xl font-semibold text-[#123c36]">A practical view of reporting</h2></div><span className="border border-[#d2ddda] px-3 py-1 text-xs font-medium text-[#64716f]">Product preview</span></div><div className="mt-8 border-y border-[#dce4e1] py-8"><p className="text-sm font-semibold text-[#123c36]">Bring your organization&apos;s data into focus.</p><p className="mt-2 max-w-md text-sm leading-6 text-[#64716f]">Once connected, managers can see reporting health, recent activity, and monthly summaries in one place.</p><div className="mt-6 flex flex-wrap gap-2 text-xs font-semibold text-[#356247]"><span className="bg-[#e9f0ee] px-3 py-2">Daily submissions</span><span className="bg-[#e9f0ee] px-3 py-2">Team activity</span><span className="bg-[#e9f0ee] px-3 py-2">Monthly insight</span></div></div><div className="mt-5 flex items-center gap-2 text-sm text-[#64716f]"><Check className="h-4 w-4 text-[#356247]" /> No sample metrics—your workspace stays grounded in your data.</div></div></div>
       </section>
 
       <section id="features" className="scroll-mt-24 border-y border-[#dce4e1] bg-[#e9f0ee] px-5 py-20 lg:px-8"><div className="mx-auto max-w-7xl"><div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">A calmer operating rhythm</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#123c36] sm:text-5xl">The reporting system people can actually keep up with.</h2></div><div className="mt-12 grid gap-px overflow-hidden rounded-2xl border border-[#d2ddd2] bg-[#d2ddd2] sm:grid-cols-2 lg:grid-cols-3">{features.map(({ icon: Icon, title, text }) => <article key={title} className="reveal reveal-up bg-[#e9f0ee] p-7 transition-colors hover:-translate-y-1 hover:bg-[#f4f6f8]"><Icon className="h-5 w-5 text-[#c47b32]" /><h3 className="mt-8 text-lg font-semibold text-[#123c36]">{title}</h3><p className="mt-3 text-sm leading-6 text-[#64716f]">{text}</p></article>)}</div></div></section>

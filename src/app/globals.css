@@ -155,7 +155,41 @@
 .product-shell,
 .marketing-shell {
   background: #f4f6f8;
+  position: relative;
 }
+.marketing-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: .55;
+  background: radial-gradient(480px circle at var(--pointer-x, 50%) var(--pointer-y, 20%), rgba(196, 123, 50, .10), transparent 68%);
+  transition: background-position 180ms ease-out;
+}
+.marketing-shell > * { position: relative; z-index: 1; }
+.marketing-shell .hero-preview {
+  transform: perspective(1200px) rotateY(-3deg) rotateX(1deg);
+  transition: transform 500ms cubic-bezier(.22,1,.36,1), box-shadow 500ms ease;
+}
+.marketing-shell .hero-preview:hover {
+  transform: perspective(1200px) rotateY(0deg) rotateX(0deg) translateY(-7px);
+  box-shadow: 0 30px 70px rgba(18, 60, 54, .2);
+}
+.marketing-shell h1 { text-wrap: balance; }
+.marketing-shell section { position: relative; }
+.marketing-shell section::after {
+  content: '';
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  right: -120px;
+  top: 12%;
+  border-radius: 999px;
+  border: 1px solid rgba(196, 123, 50, .12);
+  pointer-events: none;
+}
+
 .marketing-shell .reveal {
   opacity: 0;
   transform: translateY(28px);
