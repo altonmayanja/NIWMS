@@ -81,11 +81,13 @@ export async function PATCH(
     // Org scoping was verified above (legacy link or active SaaS membership),
     // so it is safe to update the requester's password by id.
 
-    // Update the user's password and mark request as resolved
+    // Update the user's password and mark request as resolved. Bumping
+    // tokenVersion revokes any of the requester's existing sessions, so a
+    // reset reliably signs them out everywhere.
     await db.$transaction([
       db.user.update({
         where: { id: resetRequest.userId },
-        data: { passwordHash },
+        data: { passwordHash, tokenVersion: { increment: 1 } },
       }),
       db.passwordResetRequest.update({
         where: { id },

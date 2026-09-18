@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
 
 function getJwtSecret() {
   const configuredSecret = process.env.JWT_SECRET
@@ -16,6 +17,7 @@ export interface JWTPayload {
   organizationId?: string
   membershipId?: string
   organizationRole?: string
+  tokenVersion?: number
 }
 
 export async function signToken(payload: JWTPayload): Promise<string> {
@@ -29,13 +31,26 @@ export async function signToken(payload: JWTPayload): Promise<string> {
 export async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
     const { payload } = await jwtVerify(token, getJwtSecret())
+    const userId = payload.userId as string
+    const claimedVersion = typeof payload.tokenVersion === 'number' ? payload.tokenVersion : 0
+
+    // Session revocation: credential changes (password change, admin-set reset)
+    // bump the user's tokenVersion, so tokens minted before the change carry a
+    // stale version and stop resolving. One primary-key lookup per request.
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { tokenVersion: true },
+    })
+    if (!user || user.tokenVersion !== claimedVersion) return null
+
     return {
-      userId: payload.userId as string,
+      userId,
       username: payload.username as string,
       role: payload.role as 'admin' | 'employee' | 'super_admin',
       organizationId: payload.organizationId as string | undefined,
       membershipId: payload.membershipId as string | undefined,
       organizationRole: payload.organizationRole as string | undefined,
+      tokenVersion: claimedVersion,
     }
   } catch {
     return null

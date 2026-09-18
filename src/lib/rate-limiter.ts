@@ -28,6 +28,7 @@ const LIMITS: Record<string, RateLimitConfig> = {
   admin_generate: { maxRequests: 20, windowMs: 60 * 60 * 1000 },     // 20 per hour
   admin_bulk: { maxRequests: 3, windowMs: 60 * 60 * 1000 },          // 3 per hour
   password_change: { maxRequests: 5, windowMs: 15 * 60 * 1000 },     // 5 per 15 min (brute-force guard on current-password check)
+  login_attempt: { maxRequests: 5, windowMs: 15 * 60 * 1000 },       // 5 FAILED logins per username per 15 min (brute-force guard)
 }
 
 export function checkRateLimit(
@@ -52,6 +53,29 @@ export function checkRateLimit(
 
   entry.count++
   return { allowed: true, remaining: config.maxRequests - entry.count, resetAt: entry.resetAt }
+}
+
+/**
+ * Check a limit WITHOUT recording a hit. Used by flows that must only count
+ * failures (e.g. login: successful sign-ins must not consume quota).
+ */
+export function peekRateLimit(
+  identifier: string,
+  type: keyof typeof LIMITS
+): { allowed: boolean; remaining: number; resetAt: number } {
+  const config = LIMITS[type]
+  const key = `${type}:${identifier}`
+  const now = Date.now()
+
+  const entry = store.get(key)
+  if (!entry || now > entry.resetAt) {
+    return { allowed: true, remaining: config.maxRequests, resetAt: now + config.windowMs }
+  }
+  return {
+    allowed: entry.count < config.maxRequests,
+    remaining: Math.max(0, config.maxRequests - entry.count),
+    resetAt: entry.resetAt,
+  }
 }
 
 export function getRateLimitErrorMessage(type: keyof typeof LIMITS): string {

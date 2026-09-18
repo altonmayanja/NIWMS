@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { verifyToken, getTokenFromRequest } from '@/lib/auth'
+import { verifyToken, getTokenFromRequest, signToken, sessionCookie } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 import { hashPassword } from '@/lib/password'
 import { checkRateLimit, getRateLimitErrorMessage } from '@/lib/rate-limiter'
@@ -67,16 +67,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash (bcrypt-12, system standard) and update new password, clearing the
-    // temporary-password flag so the first-login nudge disappears.
+    // temporary-password flag so the first-login nudge disappears. Bumping
+    // tokenVersion revokes every existing session (other devices, stolen
+    // cookies); the current session is re-issued a fresh token below.
     const hashedPassword = await hashPassword(newPassword)
     const passwordChangedAt = new Date()
-    await db.user.update({
+    const updatedUser = await db.user.update({
       where: { id: user.id },
       data: {
         passwordHash: hashedPassword,
         mustChangePassword: false,
         passwordChangedAt,
+        tokenVersion: { increment: 1 },
       },
+      select: { tokenVersion: true },
     })
 
     // Security alert: confirm the credential change to email-like usernames.
@@ -84,11 +88,23 @@ export async function POST(request: NextRequest) {
       await queueEmail(passwordChangedEmail({ to: user.username, when: passwordChangedAt }))
     }
 
-    return NextResponse.json({
-      message: 'Password changed successfully',
+    // Keep the current device signed in: mint a token with the new version.
+    const freshToken = await signToken({
+      userId: user.id,
+      username: user.username,
+      role: payload.role,
+      organizationId: payload.organizationId,
+      membershipId: payload.membershipId,
+      organizationRole: payload.organizationRole,
+      tokenVersion: updatedUser.tokenVersion,
+    })
+    const response = NextResponse.json({
+      message: 'Password changed successfully — other devices have been signed out.',
       mustChangePassword: false,
       passwordChangedAt: passwordChangedAt.toISOString(),
     })
+    response.cookies.set(sessionCookie(freshToken))
+    return response
   } catch (error) {
     console.error('Change password error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

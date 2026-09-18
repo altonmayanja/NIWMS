@@ -18,6 +18,7 @@ model User {
   status       String   @default("active")   // "active" | "suspended" | "archived"
   mustChangePassword Boolean @default(false) // true while the user still signs in with a provisional/temporary password
   passwordChangedAt  DateTime?              // last successful self-serve password change
+  tokenVersion       Int     @default(0)     // bumped on credential changes; JWTs with a stale version are revoked
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

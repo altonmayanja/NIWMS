@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { verifyPassword } from '@/lib/password'
 import { signToken, sessionCookie } from '@/lib/auth'
+import { peekRateLimit, checkRateLimit } from '@/lib/rate-limiter'
+
+// Brute-force guard: after 5 FAILED sign-ins for the same username within the
+// window, further attempts are rejected until the window resets. Successful
+// sign-ins never consume quota (peek before verify, record only failures).
+function loginLocked(username: string) {
+  return !peekRateLimit(username, 'login_attempt').allowed
+}
+
+function recordFailedLogin(username: string) {
+  checkRateLimit(username, 'login_attempt')
+}
 
 // PostgreSQL supports SQL-side case-insensitive matching. The SQLite client
 // used for local development does not, so fall back to a bounded lookup with
@@ -61,12 +73,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (loginLocked(username)) {
+      return NextResponse.json(
+        { error: 'Too many failed sign-in attempts. Please try again in 15 minutes.' },
+        { status: 429 }
+      )
+    }
+
     const user = await db.user.findUnique({
       where: { username },
       include: { profile: true, memberships: { where: { status: 'active' }, include: { organization: true } } },
     })
 
     if (!user || user.status !== 'active') {
+      recordFailedLogin(username)
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
@@ -89,6 +109,7 @@ export async function POST(request: NextRequest) {
     const organization = canonicalOrganization ?? legacyOrganization
 
     if (!isPlatformAdmin && (!organization || !['active', 'trial', 'grace'].includes(organization.status))) {
+      recordFailedLogin(username)
       return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
     }
 
@@ -97,12 +118,14 @@ export async function POST(request: NextRequest) {
       : undefined)
     const isLegacyOrganizationUser = Boolean(legacyOrganization && legacyOrganization.organizationType === 'LEGACY' && user.organizationId === legacyOrganization.id)
     if (!isPlatformAdmin && (!membership && !isLegacyOrganizationUser)) {
+      recordFailedLogin(username)
       return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
     }
 
 
     const isValid = await verifyPassword(password, user.passwordHash)
     if (!isValid) {
+      recordFailedLogin(username)
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
@@ -116,6 +139,7 @@ export async function POST(request: NextRequest) {
       organizationId: membership?.organizationId ?? user.organizationId ?? undefined,
       membershipId: membership?.id,
       organizationRole: membership?.role,
+      tokenVersion: user.tokenVersion,
     })
 
     // Audit failures must not turn a successful authentication into a 500 response.

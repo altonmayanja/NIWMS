@@ -116,6 +116,15 @@ else
   echo "  SKIP  reset-request isolation probe (API error)"
 fi
 
+echo "== login brute-force lockout =="
+# Failed sign-ins for a dedicated probe username never touch real accounts;
+# the counter is stable across reruns (locked attempts do not re-increment).
+LOCK_USER='lockout-probe@example.test'
+for i in 1 2 3 4 5; do
+  curl -s -o /dev/null -X POST "$BASE_URL/api/auth/login" -H 'Content-Type: application/json' -d "{\"username\":\"$LOCK_USER\",\"password\":\"wrong-$i\",\"organization\":\"$ORG_A\"}"
+done
+check "login lockout after 5 failed attempts" 429 "$(status_of -X POST "$BASE_URL/api/auth/login" -H 'Content-Type: application/json' -d "{\"username\":\"$LOCK_USER\",\"password\":\"wrong-6\",\"organization\":\"$ORG_A\"}")"
+
 echo "== platform email outbox boundaries =="
 check "anon -> /api/platform/emails" 401 "$(status_of "$BASE_URL/api/platform/emails")"
 check "employee -> /api/platform/emails" 403 "$(status_of -b "$JAR_E" "$BASE_URL/api/platform/emails")"

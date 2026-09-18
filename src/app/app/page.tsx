@@ -4129,7 +4129,7 @@ function SettingsView() {
     setChangeLoading(true)
     try {
       const res = await apiPost<{ message?: string; passwordChangedAt?: string }>('/api/auth/change-password', { oldPassword, newPassword })
-      toast.success('Password updated — your account is now secured with the new password.')
+      toast.success('Password updated — other devices have been signed out.')
       patchUser({
         mustChangePassword: false,
         passwordChangedAt: res.passwordChangedAt ?? new Date().toISOString(),
@@ -4330,6 +4330,13 @@ function SettingsView() {
               'Update Password'
             )}
           </Button>
+
+          <div className="flex items-start gap-2 border-t border-gray-100 pt-3.5">
+            <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#123c36]/50" />
+            <p className="text-xs leading-relaxed text-gray-400">
+              Changing your password signs out all other devices and sessions to keep your account safe.
+            </p>
+          </div>
         </form>
       </div>
 
