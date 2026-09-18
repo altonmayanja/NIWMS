@@ -17,7 +17,7 @@ import {
   Lock, LayoutDashboard, ClipboardCheck, CircleUser,
   ChevronUp, TrendingUp, Settings, MessageSquare,
   Info, Globe, Phone, Mail, BookOpen, MonitorSmartphone, Save,
-  BarChart3, RefreshCw, UsersRound, Archive, Trophy, Flame,
+  BarChart3, RefreshCw, UsersRound, Archive, Trophy, Flame, KeyRound, Check,
 } from 'lucide-react'
 
 import { useAuthStore, type User } from '@/store/auth-store'
@@ -4041,8 +4041,26 @@ function OrganizationSettingsCard() {
   )
 }
 
+// =====================================================================
+// PASSWORD STRENGTH (Settings change-password form)
+// =====================================================================
+
+function assessPasswordStrength(pw: string): { score: number; label: string; bar: string; text: string } {
+  if (!pw) return { score: 0, label: '', bar: 'bg-gray-200', text: '' }
+  let score = 0
+  if (pw.length >= 8) score++
+  if (pw.length >= 12) score++
+  if (/[a-zA-Z]/.test(pw) && /[0-9]/.test(pw)) score++
+  if (/[^a-zA-Z0-9]/.test(pw)) score++
+  if (score <= 1) return { score: 1, label: 'Weak', bar: 'bg-red-400', text: 'text-red-600' }
+  if (score === 2) return { score: 2, label: 'Fair', bar: 'bg-orange-400', text: 'text-orange-600' }
+  if (score === 3) return { score: 3, label: 'Good', bar: 'bg-[#c47b32]', text: 'text-[#c47b32]' }
+  return { score: 4, label: 'Strong', bar: 'bg-emerald-500', text: 'text-emerald-600' }
+}
+
 function SettingsView() {
   const user = useAuthStore((s) => s.user)
+  const patchUser = useAuthStore((s) => s.patchUser)
   const logout = useAuthStore((s) => s.logout)
   const isAdminAccount = user?.role === 'admin' || user?.role === 'super_admin'
   const { t, locale, setLocale } = useTranslation()
@@ -4056,24 +4074,39 @@ function SettingsView() {
   const [changeLoading, setChangeLoading] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
 
+  // Live password-policy signals driving the strength meter + checklist.
+  const reqLength = newPassword.length >= 8
+  const reqMixed = /[a-zA-Z]/.test(newPassword) && /[0-9]/.test(newPassword)
+  const reqMatch = newPassword.length > 0 && newPassword === confirmPassword
+  const canSubmit = reqLength && reqMixed && reqMatch
+  const strength = assessPasswordStrength(newPassword)
+
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!oldPassword || !newPassword || !confirmPassword) {
-      toast.error('All fields are required')
+    if (!oldPassword) {
+      toast.error('Enter your current password first')
       return
     }
-    if (newPassword !== confirmPassword) {
+    if (!reqLength) {
+      toast.error('New password must be at least 8 characters long')
+      return
+    }
+    if (!reqMixed) {
+      toast.error('New password must contain at least one letter and one number')
+      return
+    }
+    if (!reqMatch) {
       toast.error('New passwords do not match')
-      return
-    }
-    if (newPassword.length < 6) {
-      toast.error('New password must be at least 6 characters')
       return
     }
     setChangeLoading(true)
     try {
-      await apiPost('/api/auth/change-password', { oldPassword, newPassword })
-      toast.success('Password changed successfully!')
+      const res = await apiPost<{ message?: string; passwordChangedAt?: string }>('/api/auth/change-password', { oldPassword, newPassword })
+      toast.success('Password updated — your account is now secured with the new password.')
+      patchUser({
+        mustChangePassword: false,
+        passwordChangedAt: res.passwordChangedAt ?? new Date().toISOString(),
+      })
       setOldPassword('')
       setNewPassword('')
       setConfirmPassword('')
@@ -4126,75 +4159,140 @@ function SettingsView() {
 
       {/* Change Password */}
       <div className="product-card p-6">
-        <div className="flex items-center gap-2 mb-5">
+        <div className="flex flex-wrap items-center gap-2 mb-5">
           <Shield className="h-5 w-5 text-[#123c36]" />
           <h2 className="text-base font-semibold text-gray-900">Change Password</h2>
+          <div className="ml-auto flex items-center gap-2">
+            {user?.mustChangePassword ? (
+              <Badge className="rounded-full border border-amber-200 bg-amber-100 px-2.5 text-xs font-medium text-amber-800">
+                Temporary password
+              </Badge>
+            ) : user?.passwordChangedAt ? (
+              <span className="text-xs text-gray-400" title="Password last changed">
+                Updated {format(new Date(user.passwordChangedAt), 'MMM d, yyyy')}
+              </span>
+            ) : null}
+          </div>
         </div>
+
+        {user?.mustChangePassword && (
+          <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-3">
+            <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+            <p className="text-xs leading-relaxed text-amber-900">
+              This account is currently protected by a <span className="font-semibold">temporary password</span>. Choose a new one below — it will replace the temporary password immediately.
+            </p>
+          </div>
+        )}
+
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-gray-700">Current Password</Label>
+            <Label htmlFor="current-password" className="text-sm font-medium text-gray-700">Current Password</Label>
             <div className="relative">
               <Input
+                id="current-password"
                 type={showOldPwd ? 'text' : 'password'}
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
                 placeholder="Enter current password"
+                autoComplete="current-password"
                 className="h-10 rounded-lg border-gray-200 pr-10"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowOldPwd(!showOldPwd)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={showOldPwd ? 'Hide current password' : 'Show current password'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 transition-colors hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#123c36]/30"
               >
                 {showOldPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-gray-700">New Password</Label>
+            <Label htmlFor="new-password" className="text-sm font-medium text-gray-700">New Password</Label>
             <div className="relative">
               <Input
+                id="new-password"
                 type={showNewPwd ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password (min 6 characters)"
+                placeholder="At least 8 characters with letters and numbers"
+                autoComplete="new-password"
                 className="h-10 rounded-lg border-gray-200 pr-10"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowNewPwd(!showNewPwd)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={showNewPwd ? 'Hide new password' : 'Show new password'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 transition-colors hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#123c36]/30"
               >
                 {showNewPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {newPassword && (
+              <div className="flex items-center gap-2 pt-1" aria-live="polite">
+                <div className="flex flex-1 gap-1" aria-hidden="true">
+                  {[1, 2, 3, 4].map((seg) => (
+                    <div
+                      key={seg}
+                      className={`h-1.5 flex-1 rounded-full transition-colors duration-200 ${seg <= strength.score ? strength.bar : 'bg-gray-200'}`}
+                    />
+                  ))}
+                </div>
+                <span className={`text-xs font-medium ${strength.text}`}>{strength.label}</span>
+              </div>
+            )}
           </div>
           <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-gray-700">Confirm New Password</Label>
+            <Label htmlFor="confirm-password" className="text-sm font-medium text-gray-700">Confirm New Password</Label>
             <div className="relative">
               <Input
+                id="confirm-password"
                 type={showConfirmPwd ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Re-enter new password"
+                autoComplete="new-password"
                 className="h-10 rounded-lg border-gray-200 pr-10"
                 required
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPwd(!showConfirmPwd)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label={showConfirmPwd ? 'Hide password confirmation' : 'Show password confirmation'}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-gray-400 transition-colors hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#123c36]/30"
               >
                 {showConfirmPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
+
+          <ul className="space-y-1.5 rounded-lg bg-gray-50 px-3.5 py-3" aria-label="Password requirements">
+            {[
+              { met: reqLength, label: 'At least 8 characters' },
+              { met: reqMixed, label: 'Contains letters and numbers' },
+              { met: reqMatch, label: 'New passwords match' },
+            ].map((req) => (
+              <li key={req.label} className="flex items-center gap-2 text-xs">
+                {req.met ? (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-100">
+                    <Check className="h-3 w-3 text-emerald-600" />
+                  </span>
+                ) : (
+                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-200/70">
+                    <X className="h-2.5 w-2.5 text-gray-400" />
+                  </span>
+                )}
+                <span className={req.met ? 'text-gray-700' : 'text-gray-400'}>{req.label}</span>
+              </li>
+            ))}
+          </ul>
+
           <Button
             type="submit"
-            disabled={changeLoading}
-            className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg font-medium"
+            disabled={!canSubmit || changeLoading}
+            className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {changeLoading ? (
               <>
@@ -4286,6 +4384,7 @@ function SettingsView() {
 export default function Home() {
   const router = useRouter()
   const { isAuthenticated, isAdmin, isInitialized, initialize, logout } = useAuthStore()
+  const user = useAuthStore((s) => s.user)
   const [employeeView, setEmployeeView] = useState<EmployeeView>('submit')
   const [adminView, setAdminView] = useState<AdminView>('overview')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -4293,6 +4392,7 @@ export default function Home() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState('')
   const [searchTick, setSearchTick] = useState(0)
   const [helpOpen, setHelpOpen] = useState(false)
+  const [securityBannerDismissed, setSecurityBannerDismissed] = useState(false)
 
   useEffect(() => {
     initialize()
@@ -4441,6 +4541,47 @@ export default function Home() {
             onSearch={handleSearch}
             onHelpOpen={() => setHelpOpen(true)}
           />
+
+          {/* Temporary-password security nudge (first login after provisioning) */}
+          {user?.mustChangePassword && !securityBannerDismissed && currentView !== 'settings' && (
+            <div className="px-4 lg:px-6 pt-3">
+              <div className="max-w-7xl mx-auto">
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="flex flex-col gap-3 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center"
+                  role="alert"
+                >
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                    <KeyRound className="h-4.5 w-4.5 text-amber-700" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-amber-900">You&rsquo;re signed in with a temporary password</p>
+                    <p className="text-xs text-amber-800/80">Set a new password now to keep your workspace secure — it only takes a moment.</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleNavigate('settings')}
+                      className="h-8 rounded-lg bg-[#c47b32] px-3 text-xs font-medium text-white hover:bg-[#a96a2b]"
+                    >
+                      <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+                      Set new password
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setSecurityBannerDismissed(true)}
+                      aria-label="Dismiss temporary password notice"
+                      className="rounded-md p-1.5 text-amber-700/70 transition-colors hover:bg-amber-100 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          )}
 
           {/* Content */}
           <main className="flex-1 px-4 pt-2 pb-4 lg:px-6 lg:pb-6">

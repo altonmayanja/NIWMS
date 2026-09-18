@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Building2, Users, FileText, CreditCard, ShieldAlert, ArrowLeft, RefreshCw, Search, CalendarClock, Inbox, UserPlus, KeyRound, Copy, Check, X, Loader2, Sparkles } from 'lucide-react'
+import { Building2, Users, FileText, CreditCard, ShieldAlert, ArrowLeft, RefreshCw, Search, CalendarClock, Inbox, UserPlus, KeyRound, Copy, Check, X, Loader2, Sparkles, Hourglass } from 'lucide-react'
 
 type Overview = { metrics: Record<string, number>; organizations: { id: string; name: string; slug: string; status: string; createdAt: string; trialEndsAt: string | null; subscription: { status: string; plan: { name: string } } | null; _count: { users: number } }[] }
 
@@ -41,13 +41,48 @@ function LifecycleBadge({ status }: { status: string }) {
   const normalized = (status || '').toLowerCase()
   const styles: Record<string, string> = {
     trial: 'bg-[#e9b44c]/10 text-[#e9b44c] border-[#e9b44c]/30',
-    active: 'bg-[#7fc9a6]/10 text-[#7fc9a6] border-[#7fc9a6]/30',
+    active: 'bg-[#7fc9a6]/10 text-[#7fc9a6] border-[#e9b44c]/30',
     past_due: 'bg-[#e9b44c]/10 text-[#e9b44c] border-[#e9b44c]/30',
     grace_period: 'bg-[#e9b44c]/10 text-[#e9b44c] border-[#e9b44c]/30',
     suspended: 'bg-[#e2705f]/10 text-[#e2705f] border-[#e2705f]/30',
   }
   const cls = styles[normalized] ?? 'bg-white/5 text-[#a8b8b0] border-white/15'
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${cls}`}>{normalized.replace(/_/g, ' ') || 'unknown'}</span>
+}
+
+// Trial countdown chip: urgency-colored time remaining with the exact end date
+// underneath. Falls back to a plain date for non-trial organizations.
+function TrialCountdown({ endsAt, active }: { endsAt: string; active: boolean }) {
+  if (!active) {
+    return (
+      <span className={`inline-flex items-center gap-1.5 ${T.muted}`}>
+        <CalendarClock className="h-3.5 w-3.5" />
+        {new Date(endsAt).toLocaleDateString()}
+      </span>
+    )
+  }
+  const daysLeft = Math.ceil((new Date(endsAt).getTime() - Date.now()) / 86_400_000)
+  const expired = daysLeft < 0
+  const today = daysLeft === 0
+  const soon = daysLeft > 0 && daysLeft <= 3
+  const winding = daysLeft > 3 && daysLeft <= 7
+  const chip = expired
+    ? 'border-[#e2705f]/40 bg-[#e2705f]/10 text-[#e2705f]'
+    : today || soon
+      ? 'border-[#e2705f]/30 bg-[#e2705f]/5 text-[#f0a08f]'
+      : winding
+        ? 'border-[#e9b44c]/40 bg-[#e9b44c]/10 text-[#e9b44c]'
+        : 'border-white/15 bg-white/5 text-[#d8e2dc]'
+  const label = expired ? 'Expired' : today ? 'Ends today' : `${daysLeft}d left`
+  return (
+    <span className="inline-flex flex-col items-start gap-1">
+      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${chip}`} title={`Trial ends ${new Date(endsAt).toLocaleDateString()}`}>
+        <Hourglass className="h-3 w-3" />
+        {label}
+      </span>
+      <span className={`text-[11px] ${T.faint}`}>{new Date(endsAt).toLocaleDateString()}</span>
+    </span>
+  )
 }
 
 function RequestStatusChip({ status }: { status: TrialRequest['status'] }) {
@@ -352,12 +387,12 @@ export default function PlatformPage() {
                     </td>
                     <td className="px-5 py-4 tabular-nums">{organization._count.users}</td>
                     <td className="px-5 py-4"><LifecycleBadge status={organization.subscription?.status ?? organization.status} /></td>
-                    <td className={`px-5 py-4 tabular-nums ${T.muted}`}>
+                    <td className="px-5 py-4">
                       {organization.trialEndsAt ? (
-                        <span className="inline-flex items-center gap-1.5">
-                          <CalendarClock className={`h-3.5 w-3.5 ${T.faint}`} />
-                          {new Date(organization.trialEndsAt).toLocaleDateString()}
-                        </span>
+                        <TrialCountdown
+                          endsAt={organization.trialEndsAt}
+                          active={organization.status === 'trial' || organization.subscription?.status === 'trialing'}
+                        />
                       ) : '—'}
                     </td>
                     <td className={`px-5 py-4 tabular-nums ${T.muted}`}>{new Date(organization.createdAt).toLocaleDateString()}</td>

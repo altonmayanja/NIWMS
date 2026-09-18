@@ -103,6 +103,9 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
         passwordHash,
         role: 'admin',
         status: 'active',
+        // The account starts on a one-time temporary password — force the
+        // first-login "set a new password" nudge until it is replaced.
+        mustChangePassword: true,
       },
       select: { id: true, username: true },
     })

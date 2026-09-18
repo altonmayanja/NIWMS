@@ -116,6 +116,15 @@ else
   echo "  SKIP  reset-request isolation probe (API error)"
 fi
 
+echo "== change-password boundaries =="
+check "anon -> /api/auth/change-password" 401 "$(status_of -X POST "$BASE_URL/api/auth/change-password" -H 'Content-Type: application/json' -d '{"oldPassword":"whatever","newPassword":"Whatever123"}')"
+# Policy runs before the current-password check, so a weak new password is
+# rejected even without knowing the real one. Probes are non-mutating: they
+# never succeed, so no password is actually changed by this script.
+check "change-password weak new password (policy)" 400 "$(status_of -b "$JAR_E" -X POST "$BASE_URL/api/auth/change-password" -H 'Content-Type: application/json' -d '{"oldPassword":"not-the-real-password","newPassword":"short1"}')"
+check "change-password wrong current password" 400 "$(status_of -b "$JAR_E" -X POST "$BASE_URL/api/auth/change-password" -H 'Content-Type: application/json' -d '{"oldPassword":"not-the-real-password","newPassword":"StrongerPass123"}')"
+check "change-password missing fields" 400 "$(status_of -b "$JAR_E" -X POST "$BASE_URL/api/auth/change-password" -H 'Content-Type: application/json' -d '{}')"
+
 rm -f "$JAR_A" "$JAR_B" "$JAR_E"
 echo "== summary: $PASS passed, $FAILURES failed =="
 [ "$FAILURES" -eq 0 ]

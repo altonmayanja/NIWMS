@@ -15,6 +15,8 @@ export interface User {
   reportDeadline?: string
   membershipId?: string
   organizationRole?: string
+  mustChangePassword?: boolean
+  passwordChangedAt?: string | null
   profile: UserProfile | null
 }
 
@@ -54,6 +56,7 @@ interface AuthState {
   login: (token: string | undefined, user: User) => void
   logout: () => Promise<void>
   initialize: () => Promise<void>
+  patchUser: (partial: Partial<User>) => void
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -73,6 +76,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => undefined)
     stopActivityTracking()
     set({ token: null, user: null, isAuthenticated: false, isAdmin: false })
+  },
+
+  patchUser: (partial) => {
+    const current = get().user
+    if (!current) return
+    set({ user: { ...current, ...partial } })
   },
 
   initialize: async () => {

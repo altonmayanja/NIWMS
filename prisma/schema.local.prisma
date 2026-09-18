@@ -16,6 +16,8 @@ model User {
   passwordHash String
   role         String   @default("employee") // "admin" | "employee"
   status       String   @default("active")   // "active" | "suspended" | "archived"
+  mustChangePassword Boolean @default(false) // true while the user still signs in with a provisional/temporary password
+  passwordChangedAt  DateTime?              // last successful self-serve password change
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

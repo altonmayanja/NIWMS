@@ -27,6 +27,7 @@ const LIMITS: Record<string, RateLimitConfig> = {
   employee_generate: { maxRequests: 5, windowMs: 60 * 60 * 1000 },   // 5 per hour
   admin_generate: { maxRequests: 20, windowMs: 60 * 60 * 1000 },     // 20 per hour
   admin_bulk: { maxRequests: 3, windowMs: 60 * 60 * 1000 },          // 3 per hour
+  password_change: { maxRequests: 5, windowMs: 15 * 60 * 1000 },     // 5 per 15 min (brute-force guard on current-password check)
 }
 
 export function checkRateLimit(

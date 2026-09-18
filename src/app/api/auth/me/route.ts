@@ -46,6 +46,8 @@ export async function GET(request: NextRequest) {
       membershipId: context?.membershipId ?? undefined,
       organizationRole: context?.organizationRole ?? undefined,
       createdAt: user.createdAt,
+      mustChangePassword: user.mustChangePassword,
+      passwordChangedAt: user.passwordChangedAt,
       profile: user.profile ? {
         employeeId: user.profile.employeeId,
         position: user.profile.position,
