@@ -1,10 +1,30 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Building2, Users, FileText, CreditCard, ShieldAlert, ArrowLeft, RefreshCw, Search, CalendarClock } from 'lucide-react'
+import { Building2, Users, FileText, CreditCard, ShieldAlert, ArrowLeft, RefreshCw, Search, CalendarClock, Inbox, UserPlus, KeyRound, Copy, Check, X, Loader2, Sparkles } from 'lucide-react'
 
 type Overview = { metrics: Record<string, number>; organizations: { id: string; name: string; slug: string; status: string; createdAt: string; trialEndsAt: string | null; subscription: { status: string; plan: { name: string } } | null; _count: { users: number } }[] }
+
+type TrialRequest = {
+  id: string
+  organizationName: string
+  contactName: string
+  contactEmail: string
+  industry: string
+  status: 'pending' | 'approved' | 'dismissed'
+  reviewedAt: string | null
+  notes: string | null
+  provisionedOrgId: string | null
+  createdAt: string
+}
+
+type ProvisionResult = {
+  organization: { id: string; name: string; slug: string; trialEndsAt: string }
+  adminUsername: string
+  temporaryPassword: string
+  message: string
+}
 
 // NI product palette — dark control-plane variant (green-tinted, gold accents)
 const T = {
@@ -30,23 +50,100 @@ function LifecycleBadge({ status }: { status: string }) {
   return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${cls}`}>{normalized.replace(/_/g, ' ') || 'unknown'}</span>
 }
 
+function RequestStatusChip({ status }: { status: TrialRequest['status'] }) {
+  const styles: Record<TrialRequest['status'], string> = {
+    pending: 'bg-[#e9b44c]/10 text-[#e9b44c] border-[#e9b44c]/40',
+    approved: 'bg-[#7fc9a6]/10 text-[#7fc9a6] border-[#7fc9a6]/40',
+    dismissed: 'bg-white/5 text-[#7f948a] border-white/15',
+  }
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${styles[status]}`}>
+      {status}
+    </span>
+  )
+}
+
+function timeAgoLabel(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (Number.isNaN(then)) return ''
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000))
+  if (seconds < 60) return 'Just now'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return new Date(iso).toLocaleDateString()
+}
+
 export default function PlatformPage() {
   const [data, setData] = useState<Overview | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [trialRequests, setTrialRequests] = useState<TrialRequest[]>([])
+  const [pendingRequests, setPendingRequests] = useState(0)
+  const [actingId, setActingId] = useState<string | null>(null)
+  const [provisioned, setProvisioned] = useState<ProvisionResult | null>(null)
+  const [passwordCopied, setPasswordCopied] = useState(false)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true)
-    const response = await fetch('/api/platform/overview', { credentials: 'include' })
-    if (!response.ok) { setError(response.status === 403 ? 'This area is restricted to Natural Intellects platform administrators.' : 'Sign in with a platform administrator account to continue.'); setLoading(false); return }
-    setData(await response.json()); setError(''); setLoading(false)
-  }
+    const [overviewResponse, requestsResponse] = await Promise.all([
+      fetch('/api/platform/overview', { credentials: 'include' }),
+      fetch('/api/platform/trial-requests', { credentials: 'include' }),
+    ])
+    if (!overviewResponse.ok) {
+      setError(overviewResponse.status === 403 ? 'This area is restricted to Natural Intellects platform administrators.' : 'Sign in with a platform administrator account to continue.')
+      setLoading(false)
+      return
+    }
+    setData(await overviewResponse.json())
+    if (requestsResponse.ok) {
+      const body = await requestsResponse.json() as { requests: TrialRequest[]; pendingCount: number }
+      setTrialRequests(body.requests)
+      setPendingRequests(body.pendingCount)
+    }
+    setError('')
+    setLoading(false)
+  }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void load() }, 0)
     return () => window.clearTimeout(timer)
-  }, [])
+  }, [load])
+
+  async function act(request: TrialRequest, action: 'approve' | 'dismiss') {
+    setActingId(request.id)
+    try {
+      const response = await fetch(`/api/platform/trial-requests/${request.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ action }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        window.alert(body.error ?? 'Action failed. Please refresh and try again.')
+        return
+      }
+      if (action === 'approve') {
+        setProvisioned(body as ProvisionResult)
+        setPasswordCopied(false)
+      }
+      await load()
+    } finally {
+      setActingId(null)
+    }
+  }
+
+  function copyCredentials() {
+    if (!provisioned) return
+    const text = `NIWMS workspace: ${provisioned.organization.name}\nLogin: ${window.location.origin}/login\nAdmin email: ${provisioned.adminUsername}\nTemporary password: ${provisioned.temporaryPassword}\n(One-time secret — ask the customer to change it after first sign-in.)`
+    void navigator.clipboard?.writeText(text)
+    setPasswordCopied(true)
+  }
 
   const organizations = data?.organizations ?? []
   const filtered = useMemo(() => {
@@ -109,7 +206,7 @@ export default function PlatformPage() {
         {/* Metric cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {cards.map(({ label, value, icon: Icon, accent }) => (
-            <div key={label} className={`rounded-xl border ${T.surface} p-5 transition-colors hover:border-[#3a5548]`}>
+            <div key={label} className={`rounded-xl border ${T.surface} p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#3a5548] hover:shadow-lg hover:shadow-black/20`}>
               <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${accent}`}>
                 <Icon className="h-5 w-5" />
               </div>
@@ -119,8 +216,96 @@ export default function PlatformPage() {
           ))}
         </div>
 
-        {/* Organizations */}
+        {/* Trial request pipeline */}
         <section className={`mt-10 overflow-hidden rounded-xl border ${T.surface}`}>
+          <div className={`flex flex-col gap-3 border-b ${T.border} px-5 py-4 sm:flex-row sm:items-center sm:justify-between`}>
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e9b44c]/10 text-[#e9b44c]"><Inbox className="h-4.5 w-4.5" /></span>
+              <div>
+                <h2 className="flex items-center gap-2 font-semibold">Trial requests
+                  {pendingRequests > 0 && (
+                    <span className="inline-flex min-h-5 items-center rounded-full bg-[#e9b44c] px-2 text-[11px] font-bold tabular-nums text-[#0f1a17]">{pendingRequests} pending</span>
+                  )}
+                </h2>
+                <p className={`mt-1 text-sm ${T.muted}`}>Requests from the marketing site. Approving provisions a 14-day trial workspace instantly.</p>
+              </div>
+            </div>
+            <span className="hidden text-xs uppercase tracking-widest text-[#7f948a] sm:inline">Commercial pipeline</span>
+          </div>
+
+          {provisioned && (
+            <div className="mx-5 mt-4 rounded-lg border border-[#7fc9a6]/40 bg-[#7fc9a6]/5 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <KeyRound className="mt-0.5 h-5 w-5 shrink-0 text-[#7fc9a6]" />
+                  <div>
+                    <p className="text-sm font-semibold text-[#7fc9a6]">Workspace provisioned — {provisioned.organization.name}</p>
+                    <p className={`mt-1 text-xs ${T.muted}`}>Share these credentials with the customer. The password is shown only once.</p>
+                  </div>
+                </div>
+                <button onClick={() => setProvisioned(null)} aria-label="Dismiss credentials panel" className="rounded p-1 text-[#7f948a] transition-colors hover:text-[#f4f1e8]"><X className="h-4 w-4" /></button>
+              </div>
+              <dl className="mt-3 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2">
+                <div className="flex items-center justify-between gap-3 rounded-md bg-[#0f1a17]/60 px-3 py-2"><dt className={T.muted}>Admin email</dt><dd className="font-mono text-[#f4f1e8]">{provisioned.adminUsername}</dd></div>
+                <div className="flex items-center justify-between gap-3 rounded-md bg-[#0f1a17]/60 px-3 py-2"><dt className={T.muted}>Temporary password</dt><dd className="font-mono font-semibold text-[#e9b44c]">{provisioned.temporaryPassword}</dd></div>
+                <div className="flex items-center justify-between gap-3 rounded-md bg-[#0f1a17]/60 px-3 py-2"><dt className={T.muted}>Workspace slug</dt><dd className="font-mono text-[#f4f1e8]">{provisioned.organization.slug}</dd></div>
+                <div className="flex items-center justify-between gap-3 rounded-md bg-[#0f1a17]/60 px-3 py-2"><dt className={T.muted}>Trial ends</dt><dd className="tabular-nums text-[#f4f1e8]">{new Date(provisioned.organization.trialEndsAt).toLocaleDateString()}</dd></div>
+              </dl>
+              <button onClick={copyCredentials} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-lg border border-[#7fc9a6]/40 px-3 text-xs font-semibold text-[#7fc9a6] transition-colors hover:bg-[#7fc9a6]/10">
+                {passwordCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {passwordCopied ? 'Copied to clipboard' : 'Copy credentials for handover'}
+              </button>
+            </div>
+          )}
+
+          <ul className="divide-y divide-[#21362e]">
+            {trialRequests.slice(0, 6).map((trialRequest) => (
+              <li key={trialRequest.id} className={`relative flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-[#1b2e27] lg:flex-row lg:items-center lg:justify-between ${trialRequest.status === 'pending' ? 'before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-[#e9b44c]' : ''}`}>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate font-medium">{trialRequest.organizationName}</p>
+                    <RequestStatusChip status={trialRequest.status} />
+                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-[#a8b8b0]">{trialRequest.industry}</span>
+                  </div>
+                  <p className={`mt-1 truncate text-xs ${T.muted}`}>
+                    {trialRequest.contactName} · <span className="font-mono">{trialRequest.contactEmail}</span> · requested {timeAgoLabel(trialRequest.createdAt)}
+                    {trialRequest.reviewedAt && trialRequest.status === 'approved' && <span title={new Date(trialRequest.reviewedAt).toLocaleString()}> · provisioned {timeAgoLabel(trialRequest.reviewedAt)}</span>}
+                  </p>
+                </div>
+                {trialRequest.status === 'pending' ? (
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      onClick={() => void act(trialRequest, 'approve')}
+                      disabled={actingId === trialRequest.id}
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#e9b44c] px-3.5 text-xs font-bold text-[#0f1a17] shadow-sm shadow-black/20 transition-all hover:-translate-y-px hover:bg-[#f0c26a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9b44c] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                    >
+                      {actingId === trialRequest.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+                      Approve &amp; provision
+                    </button>
+                    <button
+                      onClick={() => void act(trialRequest, 'dismiss')}
+                      disabled={actingId === trialRequest.id}
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#3a5548] px-3.5 text-xs font-semibold text-[#a8b8b0] transition hover:bg-[#1d332b] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                ) : (
+                  <span className={`shrink-0 text-xs ${T.faint}`}>{trialRequest.status === 'approved' ? 'Workspace created' : 'No action'}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+          {trialRequests.length === 0 && (
+            <div className="flex flex-col items-center gap-2 p-8 text-center">
+              <Sparkles className={`h-6 w-6 ${T.faint}`} />
+              <p className={`text-sm ${T.muted}`}>No trial requests yet. New requests from the marketing site appear here.</p>
+            </div>
+          )}
+        </section>
+
+        {/* Organizations */}
+        <section className={`mt-8 overflow-hidden rounded-xl border ${T.surface}`}>
           <div className={`flex flex-col gap-4 border-b ${T.border} px-5 py-4 sm:flex-row sm:items-center sm:justify-between`}>
             <div>
               <h2 className="font-semibold">Organizations</h2>

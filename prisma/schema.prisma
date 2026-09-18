@@ -514,3 +514,22 @@ model ReportingNotification {
   @@index([employeeId, read])
   @@map("reporting_notifications")
 }
+
+model TrialRequest {
+  id               String    @id @default(uuid())
+  organizationName String    @map("organization_name")
+  contactName      String    @map("contact_name")
+  contactEmail     String    @map("contact_email")
+  industry         String
+  status           String    @default("pending") // "pending" | "approved" | "dismissed"
+  reviewedAt       DateTime? @map("reviewed_at")
+  reviewedBy       String?   @map("reviewed_by")
+  notes            String?
+  provisionedOrgId String?   @map("provisioned_org_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@index([contactEmail])
+  @@map("trial_requests")
+}

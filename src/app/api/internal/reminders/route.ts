@@ -3,6 +3,8 @@ import { db } from '@/lib/db'
 import { DAILY_REMINDER_TITLE, getLocalReminderWindow, shouldCreateReminder } from '@/lib/reminder-policy'
 
 const DIGEST_TITLE = 'Daily reporting digest'
+const TRIAL_WARNING_TITLE = 'Trial ending soon'
+const TRIAL_WARNING_DAYS = 3
 
 function formatDeadline(deadline: string | null | undefined) {
   const match = /^(\d{1,2}):(\d{2})$/.exec(deadline ?? '')
@@ -20,6 +22,7 @@ export async function POST(request: Request) {
   const organizations = await db.saaSOrganization.findMany({ include: { reportingEmployees: { where: { status: 'active' }, include: { membership: true } } } })
   let created = 0
   let digests = 0
+  let trialWarnings = 0
   for (const organization of organizations) {
     const now = new Date()
     const orgTimezone = organization.timezone || 'Africa/Kampala'
@@ -66,7 +69,36 @@ export async function POST(request: Request) {
       digests += 1
     }
   }
-  return NextResponse.json({ created, digests })
+
+  // Lifecycle pass: warn organization admins when their trial is about to end
+  // so the commercial relationship has an in-product touchpoint. One warning
+  // per admin per day, regardless of how often the cron fires.
+  const warningHorizon = new Date(Date.now() + TRIAL_WARNING_DAYS * 24 * 60 * 60 * 1000)
+  const expiringTrials = await db.saaSOrganization.findMany({
+    where: { status: 'trial', trialEndsAt: { lte: warningHorizon, gte: new Date() } },
+    select: { id: true, name: true, trialEndsAt: true },
+  })
+  for (const organization of expiringTrials) {
+    const daysLeft = Math.max(0, Math.ceil((organization.trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
+    const warningMessage = `Your Natural Intellects trial for ${organization.name} ends ${daysLeft === 0 ? 'today' : `in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`} (${organization.trialEndsAt.toLocaleDateString()}). Contact us to choose a plan and keep your workspace.`
+    const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0)
+    const adminMemberships = await db.saaSOrganizationMembership.findMany({
+      where: { organizationId: organization.id, status: 'active', role: { in: ['owner', 'admin'] } },
+      select: { userId: true },
+    })
+    for (const membership of adminMemberships) {
+      const exists = await db.notification.findFirst({
+        where: { userId: membership.userId, title: TRIAL_WARNING_TITLE, createdAt: { gte: todayStart } },
+        select: { id: true },
+      })
+      if (exists) continue
+      await db.notification.create({
+        data: { userId: membership.userId, title: TRIAL_WARNING_TITLE, message: warningMessage, type: 'warning' },
+      })
+      trialWarnings += 1
+    }
+  }
+  return NextResponse.json({ created, digests, trialWarnings })
 }
 
 export const runtime = 'nodejs'
