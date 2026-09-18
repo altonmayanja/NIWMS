@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Toaster, toast } from 'sonner'
 import { format, subMonths, addMonths, parseISO } from 'date-fns'
@@ -270,293 +271,6 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
         </div>
       </SheetContent>
     </Sheet>
-  )
-}
-
-// =====================================================================
-// LOGIN PAGE
-// =====================================================================
-
-function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [showLoginPwd, setShowLoginPwd] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [forgotOpen, setForgotOpen] = useState(false)
-  const login = useAuthStore((s) => s.login)
-  const { t, locale, setLocale } = useTranslation()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      const data = await apiPost<{ token: string; user: User }>('/api/auth/login', { username, password })
-      login(data.token, data.user)
-      toast.success(t('login.welcome'))
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError(t('login.error'))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #0B1F6D 0%, #0d2478 50%, #132e8a 100%)' }}>
-      {/* Subtle pattern overlay */}
-      <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 25px 25px, white 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
-
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="w-full max-w-[420px] relative z-10"
-      >
-        <Card className="border-0 shadow-2xl rounded-2xl overflow-hidden">
-          {/* Header section with branding */}
-          <div className="px-8 pt-10 pb-6 text-center" style={{ background: 'linear-gradient(180deg, #f8f9fc 0%, #ffffff 100%)' }}>
-            <div className="mx-auto w-16 h-16 rounded-2xl overflow-hidden mb-5 shadow-lg">
-              <Image src="/logo.png" alt="Natural Intellects logo" width={64} height={64} className="w-full h-full object-contain" />
-            </div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{t('login.title')}</h1>
-            <p className="text-sm text-gray-500 mt-1">{t('login.subtitle')}</p>
-          </div>
-
-          <CardContent className="px-8 pb-8 pt-2">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-                >
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
-                </motion.div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-gray-700">{t('login.username')}</Label>
-                <div className="relative">
-                  <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="username"
-                    placeholder={t('login.usernamePlaceholder')}
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                    className="h-11 pl-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">{t('login.password')}</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showLoginPwd ? 'text' : 'password'}
-                    placeholder={t('login.passwordPlaceholder')}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="h-11 pl-10 pr-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLoginPwd(!showLoginPwd)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showLoginPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button type="button" onClick={() => setForgotOpen(true)} className="text-sm font-medium text-[#0B1F6D] hover:text-[#1e3a8a] transition-colors">
-                  {t('login.forgotPassword')}
-                </button>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-11 bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white font-medium rounded-lg transition-colors"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('login.signingIn')}
-                  </>
-                ) : (
-                  <>
-                    {t('login.signIn')}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </form>
-
-            {/* Footer links */}
-            <div className="flex items-center justify-between mt-6 pt-5 border-t border-gray-100">
-              <button type="button" onClick={onHelpOpen} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#0B1F6D] transition-colors">
-                <HelpCircle className="h-3.5 w-3.5" />
-                {t('login.helpCenter')}
-              </button>
-              <button type="button" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
-                {locale === 'en' ? 'English' : locale === 'lg' ? 'Luganda' : 'Swahili'}
-              </button>
-            </div>
-          </CardContent>
-
-          {/* Security badge */}
-          <div className="bg-gray-50 border-t border-gray-100 px-8 py-4">
-            <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
-              <Lock className="h-3 w-3" />
-              <span className="font-medium tracking-wider">{t('login.encrypted')}</span>
-            </div>
-          </div>
-        </Card>
-
-        <p className="text-center text-xs text-white/30 mt-6">
-          &copy; {new Date().getFullYear()} {t('login.copyright')}
-        </p>
-
-        {/* Forgot Password Dialog */}
-        <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
-      </motion.div>
-    </div>
-  )
-}
-
-// =====================================================================
-// FORGOT PASSWORD DIALOG
-// =====================================================================
-
-function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [step, setStep] = useState<'form' | 'success'>('form')
-  const [username, setUsername] = useState('')
-  const [message, setMessage] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const { t } = useTranslation()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      await apiPost('/api/auth/forgot-password', {
-        username: username.trim(),
-        message: message.trim() || undefined,
-      })
-      setStep('success')
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError(t('login.error'))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleClose = (isOpen: boolean) => {
-    if (!isOpen) {
-      setStep('form')
-      setUsername('')
-      setMessage('')
-      setError('')
-    }
-    onOpenChange(isOpen)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-lg">
-            {step === 'success' ? t('forgot.title') : t('login.forgotPassword')}
-          </DialogTitle>
-          <DialogDescription>
-            {step === 'success'
-              ? t('forgot.description')
-              : t('forgot.description')}
-          </DialogDescription>
-        </DialogHeader>
-
-        {step === 'success' ? (
-          <div className="flex flex-col items-center py-6 gap-4">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8 text-green-600" />
-            </div>
-            <div className="text-center space-y-1">
-              <p className="text-sm font-semibold text-gray-900">{t('forgot.success')}</p>
-              <p className="text-xs text-gray-500">
-                {t('forgot.successMessage')}
-              </p>
-            </div>
-            <Button onClick={() => handleClose(false)} className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg">
-              {t('forgot.backToLogin')}
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-gray-700">{t('forgot.username')}</Label>
-              <Input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={t('forgot.usernamePlaceholder')}
-                required
-                className="h-10 rounded-lg border-gray-200"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-gray-700">{t('forgot.message')} <span className="text-gray-400 font-normal">{t('forgot.messageOptional')}</span></Label>
-              <Textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder={t('forgot.messagePlaceholder')}
-                rows={3}
-                className="rounded-lg border-gray-200 resize-none"
-              />
-            </div>
-
-            <div className="flex gap-2 pt-1">
-              <Button type="button" variant="outline" onClick={() => handleClose(false)} className="flex-1 rounded-lg border-gray-200">
-                {t('forgot.cancel')}
-              </Button>
-              <Button type="submit" disabled={loading} className="flex-1 bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg">
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('forgot.submitting')}
-                  </>
-                ) : (
-                  t('forgot.submitRequest')
-                )}
-              </Button>
-            </div>
-          </form>
-        )}
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -3993,6 +3707,7 @@ function SettingsView() {
 // =====================================================================
 
 export default function Home() {
+  const router = useRouter()
   const { isAuthenticated, isAdmin, isInitialized, initialize, logout } = useAuthStore()
   const [employeeView, setEmployeeView] = useState<EmployeeView>('submit')
   const [adminView, setAdminView] = useState<AdminView>('overview')
@@ -4051,6 +3766,13 @@ export default function Home() {
     setAdminView('overview')
   }, [logout])
 
+  // Tenant-aware access: the portal experience is reached through the unified
+  // /login (company + username + password). Unauthenticated visitors are sent
+  // there instead of being offered a company-less legacy form.
+  useEffect(() => {
+    if (isInitialized && !isAuthenticated) router.replace('/login')
+  }, [isInitialized, isAuthenticated, router])
+
   // Loading state
   if (!isInitialized) {
     return (
@@ -4065,14 +3787,16 @@ export default function Home() {
     )
   }
 
-  // Login page
-  if (!isAuthenticated) {
+  if (!isInitialized || !isAuthenticated) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <LoginPage onHelpOpen={() => setHelpOpen(true)} />
-        <HelpCenterDialog open={helpOpen} onOpenChange={setHelpOpen} />
-        <Toaster position="top-right" richColors theme="light" />
-      </QueryClientProvider>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0B1F6D' }} role="status" aria-live="polite">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl overflow-hidden animate-pulse">
+            <Image src="/logo.png" alt="Natural Intellects logo" width={48} height={48} className="w-full h-full object-contain" />
+          </div>
+          <p className="text-sm text-blue-200/50">{isInitialized ? 'Taking you to sign in…' : 'Loading...'}</p>
+        </div>
+      </div>
     )
   }
 

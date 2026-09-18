@@ -160,6 +160,15 @@ check_any "change-password weak new password (policy)" "400 429" "$(status_of -b
 check_any "change-password wrong current password" "400 429" "$(status_of -b "$JAR_E" -X POST "$BASE_URL/api/auth/change-password" -H 'Content-Type: application/json' -d '{"oldPassword":"not-the-real-password","newPassword":"StrongerPass123"}')"
 check_any "change-password missing fields" "400 429" "$(status_of -b "$JAR_E" -X POST "$BASE_URL/api/auth/change-password" -H 'Content-Type: application/json' -d '{}')"
 
+echo "== billing quote + interval boundaries =="
+# The public quote endpoint is intentionally anonymous (marketing calculator),
+# but it must reject unknown plans and never leak anything but public pricing.
+check "quote -> unknown plan" 404 "$(status_of "$BASE_URL/api/billing/quote?plan=does-not-exist&interval=annual")"
+check "quote -> invalid interval falls back safely" 200 "$(status_of "$BASE_URL/api/billing/quote?plan=business&interval=hax")"
+# Changing the billing interval mutates the subscription — admins only.
+check "employee -> set_interval" 403 "$(status_of -b "$JAR_E" -X POST "$BASE_URL/api/billing" -H 'Content-Type: application/json' -d '{"action":"set_interval","interval":"annual"}')"
+check "anon -> set_interval" 401 "$(status_of -X POST "$BASE_URL/api/billing" -H 'Content-Type: application/json' -d '{"action":"set_interval","interval":"annual"}')"
+
 rm -f "$JAR_A" "$JAR_B" "$JAR_E"
 echo "== summary: $PASS passed, $FAILURES failed =="
 [ "$FAILURES" -eq 0 ]

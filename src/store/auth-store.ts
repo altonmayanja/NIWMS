@@ -13,6 +13,7 @@ export interface User {
   status: string
   organizationId?: string
   organizationName?: string
+  organizationType?: 'SAAS' | 'LEGACY'
   reportDeadline?: string
   membershipId?: string
   organizationRole?: string

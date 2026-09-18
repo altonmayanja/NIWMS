@@ -53,7 +53,7 @@ async function findCanonicalOrganization(input: string, requestedOrganizationId:
     const nameFilter = { equals: input, mode: 'insensitive' } as unknown as { equals: string }
     return db.saaSOrganization.findFirst({ where: { name: nameFilter } })
   }
-  const candidates = await db.saaSOrganization.findMany({ take: 200, select: { id: true, name: true, slug: true, status: true } })
+  const candidates = await db.saaSOrganization.findMany({ take: 200, select: { id: true, name: true, slug: true, status: true, organizationType: true } })
   return candidates.find((row) => nameMatchesOrganizationInput(row.name, input)) ?? null
 }
 
@@ -163,6 +163,8 @@ export async function POST(request: NextRequest) {
         status: user.status,
         organizationId: membership?.organizationId ?? organization?.id,
         organizationName: organization?.name ?? undefined,
+        // 'LEGACY' organizations land in the portal experience; everything else in the workspace.
+        organizationType: organization ? (organization.organizationType === 'LEGACY' ? 'LEGACY' : 'SAAS') : undefined,
         membershipId: membership?.id,
         organizationRole: membership?.role,
         organization: organization ? { id: organization.id, name: organization.name, slug: organization.slug } : null,

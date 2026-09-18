@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import {
   ArrowRight,
   BarChart3,
   BellRing,
+  CalendarRange,
   Check,
   ChevronDown,
   ClipboardCheck,
@@ -14,10 +15,12 @@ import {
   LockKeyhole,
   Menu,
   Mic,
+  Receipt,
   ShieldCheck,
   UsersRound,
   X,
 } from 'lucide-react'
+import { computeQuote, type BillingInterval, type Quote } from '@/lib/billing/pricing'
 
 const features = [
   { icon: ClipboardCheck, title: 'Daily work reporting', text: 'Give every employee a clear, low-friction place to capture meaningful work as it happens.' },
@@ -34,32 +37,74 @@ const demos = [
   { label: 'For leadership', title: 'Turn activity into operating context.', text: 'Monthly summaries give leaders a dependable view of what moved, what repeated, and what needs a decision.', items: ['Structured summaries', 'Excel-ready exports', 'Auditable activity'] },
 ]
 
-const plans = [
-  { name: 'Starter', monthly: 30000, limit: 'Up to 10 employees', description: 'A focused foundation for small teams.' },
-  { name: 'Business', monthly: 75000, limit: 'Up to 30 employees', description: 'More visibility for growing organizations.', featured: true },
-  { name: 'Professional', monthly: 150000, limit: 'Up to 75 employees', description: 'Reporting depth for established teams.' },
-  { name: 'Enterprise', monthly: null, limit: '75+ employees', description: 'A plan shaped around your operating model.' },
+interface PlanCard {
+  key: string
+  name: string
+  description: string
+  /** Whole UGX list price per month; null = custom-priced (Enterprise). */
+  monthlyPrice: number | null
+  maxEmployees: number | null
+  limit: string
+  featured?: boolean
+}
+
+// Fallback catalog — kept numerically identical to the Plan table (see
+// ensureDefaultPlans in src/lib/entitlements.ts). The pricing section hydrates
+// from GET /api/plans so the brochure and the billing engine can never drift.
+const FALLBACK_PLANS: PlanCard[] = [
+  { key: 'starter', name: 'Starter', description: 'A focused foundation for small teams.', monthlyPrice: 30000, maxEmployees: 10, limit: 'Up to 10 employees' },
+  { key: 'business', name: 'Business', description: 'More visibility for growing organizations.', monthlyPrice: 75000, maxEmployees: 30, limit: 'Up to 30 employees', featured: true },
+  { key: 'professional', name: 'Professional', description: 'Reporting depth for established teams.', monthlyPrice: 150000, maxEmployees: 75, limit: 'Up to 75 employees' },
+  { key: 'enterprise', name: 'Enterprise', description: 'A plan shaped around your operating model.', monthlyPrice: null, maxEmployees: null, limit: '75+ employees' },
 ]
+
+const INTERVALS: BillingInterval[] = ['monthly', 'quarterly', 'annual']
+
+const ugx = (amount: number) => `UGX ${Math.round(amount).toLocaleString('en-US')}`
 
 const faqs = [
   ['Do employees need training?', 'The daily activity flow is intentionally simple. Most teams can introduce it with a short walkthrough and a clear reporting expectation.'],
   ['Can we export our monthly reports?', 'Yes. Monthly reporting is designed for structured, Excel-ready exports that include summaries, statistics, activities, and notes.'],
   ['How is access controlled?', 'Access is organization-scoped and role-aware. Important actions can be recorded in an audit trail for review.'],
-  ['Can we start before choosing a paid plan?', 'Yes. Start with a 14-day trial without payment details, then choose the plan shape that fits your organization.'],
+  ['Can we start before choosing a paid plan?', 'Yes. Start with a 14-day trial without payment details, then choose the plan and billing interval that fits your organization.'],
 ]
-
-const formatPrice = (value: number | null, annual: boolean) => {
-  if (value === null) return 'Custom'
-  const amount = annual ? Math.round(value * 10 / 12) : value
-  return `UGX ${amount.toLocaleString()}`
-}
 
 export default function MarketingPage() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [activeDemo, setActiveDemo] = useState(0)
-  const [annual, setAnnual] = useState(false)
+  const [interval, setInterval] = useState<BillingInterval>('annual')
+  const [plans, setPlans] = useState<PlanCard[]>(FALLBACK_PLANS)
   const [activeSection, setActiveSection] = useState('features')
   const [pointer, setPointer] = useState({ x: 50, y: 20 })
+
+  // Hydrate the catalog from the billing engine's public endpoint. If it is
+  // unreachable, the fallback constants above still render truthful numbers.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/plans')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body) => {
+        if (cancelled || !body?.plans) return
+        const hydrated: PlanCard[] = body.plans.map((plan: { key: string; name: string; description?: string; monthlyPrice: number; maxEmployees: number | null; customPricing?: boolean }) => ({
+          key: plan.key,
+          name: plan.name,
+          description: plan.description || FALLBACK_PLANS.find((fixture) => fixture.key === plan.key)?.description || '',
+          monthlyPrice: plan.customPricing ? null : plan.monthlyPrice,
+          maxEmployees: plan.maxEmployees,
+          limit: plan.maxEmployees === null ? '75+ employees' : `Up to ${plan.maxEmployees} employees`,
+          featured: FALLBACK_PLANS.find((fixture) => fixture.key === plan.key)?.featured,
+        }))
+        // Keep the brochure's display order (Starter → Enterprise) regardless
+        // of how the catalog API sorts by price.
+        hydrated.sort((a, b) => {
+          const order = (plan: PlanCard) => FALLBACK_PLANS.findIndex((fixture) => fixture.key === plan.key)
+          return order(a) - order(b)
+        })
+        if (hydrated.length > 0) setPlans(hydrated)
+      })
+      .catch(() => undefined)
+    return () => { cancelled = true }
+  }, [])
 
   useEffect(() => {
     const sections = ['features', 'how-it-works', 'security', 'pricing']
@@ -113,7 +158,59 @@ export default function MarketingPage() {
 
       <section id="security" className="scroll-mt-24 bg-[#123c36] px-5 py-20 text-[#f4f6f8] lg:px-8 lg:py-24"><div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1fr_1fr] lg:items-center"><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#e9b44c]">Built with care</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Your workforce data deserves a considered home.</h2><p className="mt-5 max-w-xl leading-7 text-[#c4d0c5]">Tenant-aware access, role-based permissions, secure authentication, and auditable activity are foundational—not add-ons.</p></div><div className="grid gap-3 sm:grid-cols-2">{[['Tenant isolation', 'Customer data is scoped server-side to its organization.'], ['Role-based access', 'Permissions follow responsibility, not guesswork.'], ['Audit logging', 'Important actions leave a clear, reviewable trail.'], ['Responsible exports', 'Reports respect ownership and organization boundaries.']].map(([title, text]) => <div key={title} className="rounded-xl border border-[#3d5c49] p-5"><ShieldCheck className="h-5 w-5 text-[#e9b44c]" /><h3 className="mt-5 font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#b6c5b8]">{text}</p></div>)}</div></div></section>
 
-      <section id="pricing" className="scroll-mt-24 mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28"><div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">Simple starting points</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#123c36]">Choose the shape that fits your team.</h2></div><div className="flex items-center gap-3 rounded-full border border-[#dce4e1] bg-[#e9f0ee] p-1 text-sm"><button type="button" aria-pressed={!annual} onClick={() => setAnnual(false)} className={`rounded-full px-4 py-2 font-semibold ${!annual ? 'bg-[#123c36] text-[#f4f6f8]' : 'text-[#64716f]'}`}>Monthly</button><button type="button" aria-pressed={annual} onClick={() => setAnnual(true)} className={`rounded-full px-4 py-2 font-semibold ${annual ? 'bg-[#123c36] text-[#f4f6f8]' : 'text-[#64716f]'}`}>Annual <span className="text-[#c47b32]">Save 2 mo</span></button></div></div><div className="mt-12 grid gap-4 lg:grid-cols-4">{plans.map((plan) => <article key={plan.name} className={`reveal reveal-up flex flex-col rounded-2xl border p-6 ${plan.featured ? 'border-[#c47b32] bg-[#fbf0dc]' : 'border-[#dce4e1] bg-[#f4f6f8]'}`}><div className="flex items-center justify-between"><h3 className="text-lg font-semibold text-[#123c36]">{plan.name}</h3>{plan.featured && <span className="rounded-full bg-[#c47b32] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Popular</span>}</div><p className="mt-6 text-2xl font-semibold text-[#123c36]">{formatPrice(plan.monthly, annual)}<span className="text-sm font-normal text-[#829086]"> / month</span></p><p className="mt-2 text-sm text-[#64716f]">{plan.limit}</p><p className="mt-6 min-h-12 text-sm leading-6 text-[#64716f]">{plan.description}</p><Link href="/start-free-trial" className="mt-6 inline-flex items-center text-sm font-semibold text-[#123c36]">Get started <ArrowRight className="ml-2 h-4 w-4" /></Link></article>)}</div></section>
+      <section id="pricing" className="scroll-mt-24 mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28">
+        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+          <div><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">Simple starting points</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#123c36]">Choose the shape that fits your team.</h2><p className="mt-4 max-w-xl text-sm leading-6 text-[#64716f]">Every figure below is computed by the same billing engine that would invoice you — the amount, the VAT, the covered dates, and the renewal date are definitive, not estimates.</p></div>
+          <div>
+            <div className="flex items-center gap-2 rounded-full border border-[#dce4e1] bg-[#e9f0ee] p-1 text-sm" role="group" aria-label="Billing interval">
+              {INTERVALS.map((key) => {
+                const reference = plans.find((plan) => plan.featured && plan.monthlyPrice) ?? plans.find((plan) => plan.monthlyPrice)
+                const savePct = reference?.monthlyPrice
+                  ? Math.round((1 - computeQuote({ monthlyPrice: reference.monthlyPrice, interval: key }).effectiveMonthlyPrice / reference.monthlyPrice) * 100)
+                  : 0
+                return (
+                  <button key={key} type="button" aria-pressed={interval === key} onClick={() => setInterval(key)} className={`rounded-full px-4 py-2 font-semibold transition-colors ${interval === key ? 'bg-[#123c36] text-[#f4f6f8]' : 'text-[#64716f] hover:text-[#123c36]'}`}>
+                    {key === 'monthly' ? 'Monthly' : key === 'quarterly' ? 'Quarterly' : 'Annual'}
+                    {savePct > 0 && <span className="ml-1.5 text-[#c47b32]">−{savePct}%</span>}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-right text-[11px] text-[#829086]">Prices exclude VAT · 18% added at billing</p>
+          </div>
+        </div>
+        <div className="mt-12 grid gap-4 lg:grid-cols-4">
+          {plans.map((plan) => {
+            const custom = plan.monthlyPrice === null
+            const quote = custom ? null : computeQuote({ monthlyPrice: plan.monthlyPrice as number, interval })
+            const savingsPct = quote && quote.monthlyEquivalentTotal > 0 ? Math.round((quote.savings / quote.monthlyEquivalentTotal) * 100) : 0
+            return (
+              <article key={plan.key} className={`reveal reveal-up flex flex-col rounded-2xl border p-6 ${plan.featured ? 'border-[#c47b32] bg-[#fbf0dc]' : 'border-[#dce4e1] bg-[#f4f6f8]'}`}>
+                <div className="flex items-center justify-between"><h3 className="text-lg font-semibold text-[#123c36]">{plan.name}</h3>{plan.featured && <span className="rounded-full bg-[#c47b32] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Popular</span>}</div>
+                {custom ? (
+                  <p className="mt-6 text-2xl font-semibold text-[#123c36]">Custom<span className="text-sm font-normal text-[#829086]"> pricing</span></p>
+                ) : (
+                  <>
+                    <p className="mt-6 text-2xl font-semibold text-[#123c36]">{ugx(quote!.effectiveMonthlyPrice)}<span className="text-sm font-normal text-[#829086]"> / month</span></p>
+                    <p className="mt-1.5 text-xs leading-5 text-[#64716f]">
+                      Billed <span className="font-semibold text-[#304237]">{ugx(quote!.total)}</span> every {quote!.monthsCovered === 1 ? 'month' : `${quote!.monthsCovered} months`} · incl. VAT {ugx(quote!.vatAmount)}
+                    </p>
+                    {quote!.savings > 0 && (
+                      <p className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-[#e7f0e4] px-2.5 py-1 text-[11px] font-semibold text-[#356247]" aria-label={`Save ${ugx(quote!.savings)} per year compared to monthly billing`}>
+                        <Check className="h-3 w-3" /> Save {ugx(quote!.savings)} ({savingsPct}%)
+                      </p>
+                    )}
+                  </>
+                )}
+                <p className="mt-3 text-sm text-[#64716f]">{plan.limit}</p>
+                <p className="mt-5 min-h-12 text-sm leading-6 text-[#64716f]">{plan.description}</p>
+                <Link href={custom ? '/start-free-trial' : `/start-free-trial?plan=${plan.key}&interval=${interval}`} className="mt-6 inline-flex items-center text-sm font-semibold text-[#123c36]">Get started <ArrowRight className="ml-2 h-4 w-4" /></Link>
+              </article>
+            )
+          })}
+        </div>
+        <PricingCalculator interval={interval} plans={plans} />
+      </section>
 
       <section className="reveal reveal-up mx-auto max-w-4xl px-5 pb-20 lg:px-8"><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">Questions, answered</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#123c36]">A clearer start for your team.</h2><div className="mt-8 divide-y divide-[#dce4e1] border-y border-[#dce4e1]">{faqs.map(([question, answer]) => <details key={question} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-semibold text-[#304237] [&::-webkit-details-marker]:hidden">{question}<ChevronDown className="h-5 w-5 shrink-0 text-[#c47b32] transition-transform group-open:rotate-180" /></summary><p className="max-w-2xl pt-3 leading-7 text-[#64716f]">{answer}</p></details>)}</div></section>
 
@@ -121,5 +218,100 @@ export default function MarketingPage() {
 
       <footer className="border-t border-[#dce4e1] px-5 py-8 lg:px-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 text-sm text-[#738078] sm:flex-row"><p>© {new Date().getFullYear()} Natural Intellects Ltd.</p><div className="flex flex-wrap gap-5"><a href="#security" className="hover:text-[#123c36]">Security</a><a href="#pricing" className="hover:text-[#123c36]">Pricing</a><a href="mailto:hello@naturalintellects.com" className="hover:text-[#123c36]">Contact</a><span className="flex items-center gap-1"><Headphones className="h-3.5 w-3.5" /> Support-ready</span></div></div></footer>
     </main>
+  )
+}
+
+interface QuoteResponse {
+  plan: { key: string; name: string; monthlyPrice: number; maxEmployees: number | null; customPricing: boolean }
+  interval: BillingInterval
+  seats: number | null
+  fits: boolean
+  quote: Quote
+}
+
+// Interactive quote calculator. The numbers it displays come from the server's
+// /api/billing/quote endpoint — the exact totals, VAT, covered period, and
+// renewal date a subscriber would actually be charged on that plan + interval.
+function PricingCalculator({ interval, plans }: { interval: BillingInterval; plans: PlanCard[] }) {
+  const [seats, setSeats] = useState(24)
+  const [planKey, setPlanKey] = useState('business')
+  const [result, setResult] = useState<QuoteResponse | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const pricedPlans = plans.filter((plan) => plan.monthlyPrice !== null)
+  // Derived (not synced) selection: if the currently chosen plan cannot hold
+  // the requested seats, the calculator automatically falls back to the
+  // cheapest plan that can — no cascading setState effects required.
+  const selectedPlan =
+    pricedPlans.find((plan) => plan.key === planKey && plan.maxEmployees !== null && seats <= plan.maxEmployees) ??
+    pricedPlans.find((plan) => plan.maxEmployees !== null && seats <= plan.maxEmployees) ??
+    pricedPlans[pricedPlans.length - 1] ??
+    pricedPlans[0]
+
+  useEffect(() => {
+    if (!selectedPlan || selectedPlan.monthlyPrice === null) return
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      setRefreshing(true)
+      fetch(`/api/billing/quote?plan=${selectedPlan.key}&interval=${interval}&seats=${seats}`, { signal: controller.signal })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((body) => { if (body?.quote) setResult(body) })
+        .catch(() => undefined)
+        .finally(() => setRefreshing(false))
+    }, 200)
+    return () => { controller.abort(); clearTimeout(timer) }
+  }, [interval, seats, selectedPlan])
+
+  const quote = result?.quote ?? null
+  const trialHref = `/start-free-trial?plan=${selectedPlan?.key ?? 'business'}&interval=${interval}&seats=${seats}`
+
+  return (
+    <div className="reveal reveal-up mt-6 overflow-hidden rounded-2xl border border-[#cbd6cb] bg-white shadow-sm" data-testid="pricing-calculator">
+      <div className="grid gap-0 lg:grid-cols-[1fr_1.1fr]">
+        <div className="border-b border-[#dce4e1] p-6 sm:p-8 lg:border-b-0 lg:border-r">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#c47b32]"><UsersRound className="h-4 w-4" /> Size your team</p>
+          <h3 className="mt-3 text-2xl font-semibold text-[#123c36]">See your real number before you commit.</h3>
+          <p className="mt-2 text-sm leading-6 text-[#64716f]">Slide to your team size. The calculator picks the plan that fits and quotes the exact amount, dates, and renewal.</p>
+          <div className="mt-7 flex items-end justify-between"><label htmlFor="seats" className="text-sm font-semibold text-[#304237]">Employees</label><span className="rounded-lg bg-[#e9f0ee] px-3 py-1 text-sm font-bold text-[#123c36]" aria-live="polite">{seats}</span></div>
+          <input id="seats" type="range" min={1} max={100} step={1} value={seats} onChange={(event) => setSeats(Number(event.target.value))} className="mt-3 h-2 w-full cursor-pointer accent-[#c47b32]" aria-valuemin={1} aria-valuemax={100} aria-valuenow={seats} />
+          <div className="mt-1 flex justify-between text-[11px] text-[#829086]"><span>1</span><span>25</span><span>50</span><span>75</span><span>100+</span></div>
+          <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Plan">
+            {pricedPlans.map((plan) => (
+              <button key={plan.key} type="button" aria-pressed={selectedPlan?.key === plan.key} onClick={() => setPlanKey(plan.key)} className={`rounded-full border px-3.5 py-2 text-xs font-semibold transition-colors ${selectedPlan?.key === plan.key ? 'border-[#123c36] bg-[#123c36] text-[#f4f6f8]' : 'border-[#d2ddda] text-[#64716f] hover:bg-[#e9f0ee]'}`}>
+                {plan.name}
+                {plan.maxEmployees !== null && <span className="ml-1 opacity-70">≤{plan.maxEmployees}</span>}
+              </button>
+            ))}
+          </div>
+          {seats > 75 && <p className="mt-3 rounded-lg bg-[#fbf0dc] px-3 py-2 text-xs font-medium text-[#8a5a13]" role="note">Above 75 employees our team tailors an Enterprise plan — the quote shows the Professional rate as a reference.</p>}
+        </div>
+        <div className="bg-[#f7f9f6] p-6 sm:p-8" aria-live="polite">
+          <p className="flex items-center justify-between gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#c47b32]"><span className="flex items-center gap-2"><Receipt className="h-4 w-4" /> Your quote</span><span className={`flex items-center gap-1.5 text-[10px] font-semibold normal-case tracking-normal text-[#829086] ${refreshing ? 'opacity-100' : 'opacity-70'}`}>{refreshing && <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[#c47b32]" aria-hidden="true" />}{refreshing ? 'updating…' : 'server-verified'}</span></p>
+          {quote ? (
+            <>
+              <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-sm font-semibold text-[#304237]">{result?.plan.name} · {quote.intervalLabel} billing · {seats} seat{seats === 1 ? '' : 's'}</p>
+                <p className="text-3xl font-semibold tracking-[-0.03em] text-[#123c36]">{ugx(quote.total)}</p>
+              </div>
+              <p className="mt-1 text-xs text-[#829086]">Due today, VAT inclusive</p>
+              <dl className="mt-5 space-y-2.5 text-sm">
+                <div className="flex justify-between gap-4"><dt className="text-[#64716f]">Effective monthly rate</dt><dd className="font-semibold text-[#304237]">{ugx(quote.effectiveMonthlyPrice)}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-[#64716f]">Subtotal ({quote.monthsCovered} {quote.monthsCovered === 1 ? 'month' : 'months'})</dt><dd className="text-[#304237]">{ugx(quote.subtotal)}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-[#64716f]">VAT ({Math.round(quote.vatRate * 100)}%)</dt><dd className="text-[#304237]">{ugx(quote.vatAmount)}</dd></div>
+                <div className="flex justify-between gap-4 border-t border-[#dce4e1] pt-2.5"><dt className="flex items-center gap-1.5 text-[#64716f]"><CalendarRange className="h-4 w-4 text-[#c47b32]" /> Period covered</dt><dd className="text-right font-semibold text-[#304237]">{quote.periodStartLabel} → {quote.periodEndLabel}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-[#64716f]">Renews on</dt><dd className="font-semibold text-[#304237]">{quote.periodEndLabel}</dd></div>
+                {quote.savings > 0 && (
+                  <div className="flex justify-between gap-4 rounded-lg bg-[#e7f0e4] px-3 py-2"><dt className="font-semibold text-[#356247]">You save vs monthly billing</dt><dd className="font-bold text-[#356247]">{ugx(quote.savings)} ({quote.savingsPercent}%)</dd></div>
+                )}
+              </dl>
+              <Link href={trialHref} className="mt-6 flex items-center justify-center rounded-xl bg-[#123c36] px-5 py-3.5 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5" aria-label={`Start free trial on ${result?.plan.name}, billed ${quote.intervalLabel.toLowerCase()}`}>Start with {result?.plan.name} · {quote.intervalLabel} <ArrowRight className="ml-2 h-4 w-4" /></Link>
+              <p className="mt-3 text-center text-[11px] text-[#829086]">No payment during the 14-day trial — your billing interval takes effect when you convert.</p>
+            </>
+          ) : (
+            <div className="mt-6 space-y-3" aria-hidden="true"><div className="h-8 w-40 animate-pulse rounded-lg bg-[#e2e8e0]" /><div className="h-4 w-full animate-pulse rounded bg-[#e2e8e0]" /><div className="h-4 w-3/4 animate-pulse rounded bg-[#e2e8e0]" /><div className="h-4 w-2/3 animate-pulse rounded bg-[#e2e8e0]" /><div className="h-12 w-full animate-pulse rounded-xl bg-[#e2e8e0]" /></div>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
