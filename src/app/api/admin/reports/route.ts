@@ -14,8 +14,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
     const month = searchParams.get('month')
-    // The dashboard employee filter sends account (user) ids; accept both.
-    const employeeParam = searchParams.get('employeeId')
+    // The dashboard employee filter sends account (user) ids; accept both the
+    // current `userId` param and the legacy `employeeId` spelling. (An unknown
+    // id matches no employee in this org, so the result set is safely empty.)
+    const employeeParam = searchParams.get('employeeId') ?? searchParams.get('userId')
     let employeeFilter: Record<string, unknown> = {}
     if (employeeParam) {
       const canonicalEmployee = await db.reportingEmployee.findUnique({ where: { id: employeeParam } })

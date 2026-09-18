@@ -12,6 +12,7 @@ export interface User {
   status: string
   organizationId?: string
   organizationName?: string
+  reportDeadline?: string
   membershipId?: string
   organizationRole?: string
   profile: UserProfile | null

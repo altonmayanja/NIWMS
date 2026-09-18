@@ -27,10 +27,25 @@ export async function PATCH(
       return NextResponse.json({ error: 'Action must be "resolve" or "reject"' }, { status: 400 })
     }
 
-    // Find the reset request
-    const resetRequest = await db.passwordResetRequest.findFirst({
-      where: { id, user: { organizationId: context.organizationId } },
-    })
+    // Scope the request to this organization: the requester must be linked via
+    // the legacy User.organizationId OR an active canonical SaaS membership.
+    const resetRequest = await db.passwordResetRequest.findFirst({ where: { id } })
+    if (resetRequest) {
+      const targetUser = await db.user.findUnique({
+        where: { id: resetRequest.userId ?? '' },
+        select: { organizationId: true },
+      })
+      const saasMember = targetUser?.organizationId === context.organizationId
+        ? null
+        : await db.saaSOrganizationMembership.findFirst({
+            where: { userId: resetRequest.userId ?? '', organizationId: context.organizationId, status: 'active' },
+            select: { id: true },
+          })
+      const legacyMember = targetUser?.organizationId === context.organizationId
+      if (!legacyMember && !saasMember) {
+        return NextResponse.json({ error: 'Reset request not found' }, { status: 404 })
+      }
+    }
 
     if (!resetRequest) {
       return NextResponse.json({ error: 'Reset request not found' }, { status: 404 })
@@ -63,10 +78,13 @@ export async function PATCH(
 
     const passwordHash = await hashPassword(newPassword)
 
+    // Org scoping was verified above (legacy link or active SaaS membership),
+    // so it is safe to update the requester's password by id.
+
     // Update the user's password and mark request as resolved
     await db.$transaction([
       db.user.update({
-        where: { id: resetRequest.userId, organizationId: context.organizationId },
+        where: { id: resetRequest.userId },
         data: { passwordHash },
       }),
       db.passwordResetRequest.update({

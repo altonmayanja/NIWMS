@@ -103,6 +103,12 @@ export async function POST(request: NextRequest) {
         metadata: { date },
       },
     })
+    // Submission closes the loop on reminder nudges: any outstanding unread
+    // reminders for this employee are marked read so the bell badge clears.
+    await db.reportingNotification.updateMany({
+      where: { organizationId: tenant.organizationId, employeeId: employee.id, type: 'reminder', read: false },
+      data: { read: true },
+    })
     return NextResponse.json(report, { status: 201 })
   } catch (error) {
     console.error('Create report error:', error)

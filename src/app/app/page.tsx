@@ -159,6 +159,7 @@ const employeeNavItems: { key: EmployeeView; label: string; icon: React.ReactNod
 
 function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null)
+  const user = useAuthStore((s) => s.user)
 
   const faqs = [
     {
@@ -167,11 +168,11 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     },
     {
       q: 'What is the daily report deadline?',
-      a: 'Reports should be submitted by 6:00 PM daily. The system tracks consistent reporting for performance review purposes.',
+      a: `Reports should be submitted by ${formatDeadlineLabel(user?.reportDeadline)} daily (your organization's local time). The system tracks consistent reporting for performance review purposes.`,
     },
     {
       q: 'How do I reset my password?',
-      a: 'Click "Forgot Password?" on the login page and submit a request. The administrator will review it and update your credentials.',
+      a: `Go to Settings and use the "Password reset request" card, or contact your organization administrator directly. They will review your request and update your credentials.`,
     },
     {
       q: 'Can I edit or delete a submitted report?',
@@ -652,6 +653,35 @@ function MobileSidebar({
 // TOP HEADER BAR
 // =====================================================================
 
+// "16:00" -> "4:00 PM"; falls back to the product default deadline.
+function formatDeadlineLabel(deadline?: string | null): string {
+  const match = /^(\d{1,2}):(\d{2})$/.exec((deadline ?? '').trim())
+  if (!match) return '4:00 PM'
+  const hours = Number(match[1])
+  if (Number.isNaN(hours) || hours > 23) return '4:00 PM'
+  return `${hours % 12 === 0 ? 12 : hours % 12}:${match[2]} ${hours >= 12 ? 'PM' : 'AM'}`
+}
+
+// Notification row relative timestamps ("Just now", "5m ago", "2h ago", "3d ago");
+// absolute date fallback for anything older than a week.
+function timeAgo(iso: string): string {
+  try {
+    const then = parseISO(iso).getTime()
+    if (Number.isNaN(then)) return ''
+    const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000))
+    if (seconds < 60) return 'Just now'
+    const minutes = Math.floor(seconds / 60)
+    if (minutes < 60) return `${minutes}m ago`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.floor(hours / 24)
+    if (days < 7) return `${days}d ago`
+    return format(parseISO(iso), 'MMM d, yyyy')
+  } catch {
+    return ''
+  }
+}
+
 function TopHeader({
   onMenuToggle,
   mobileOpen,
@@ -853,14 +883,14 @@ function TopHeader({
                     <ScrollArea className="max-h-[400px]">
                       <div className="space-y-2">
                         {notifications.slice(0, 20).map((notif) => {
-                          const iconBg = notif.type === 'warning' ? 'bg-amber-50' : notif.type === 'success' ? 'bg-green-50' : notif.type === 'announcement' ? 'bg-purple-50' : notif.type === 'reminder' ? 'bg-blue-50' : 'bg-gray-50'
-                          const iconColor = notif.type === 'warning' ? 'text-amber-500' : notif.type === 'success' ? 'text-green-600' : notif.type === 'announcement' ? 'text-purple-500' : notif.type === 'reminder' ? 'text-blue-500' : 'text-gray-500'
+                          const iconBg = notif.type === 'warning' ? 'bg-amber-50' : notif.type === 'success' ? 'bg-green-50' : notif.type === 'announcement' ? 'bg-purple-50' : notif.type === 'reminder' ? 'bg-[#c47b32]/10' : 'bg-gray-50'
+                          const iconColor = notif.type === 'warning' ? 'text-amber-500' : notif.type === 'success' ? 'text-green-600' : notif.type === 'announcement' ? 'text-purple-500' : notif.type === 'reminder' ? 'text-[#c47b32]' : 'text-gray-500'
                           const IconComp = notif.type === 'warning' ? AlertCircle : notif.type === 'success' ? CheckCircle2 : notif.type === 'reminder' ? Clock : Info
                           return (
                             <button
                               key={notif.id}
                               onClick={() => { if (!notif.read) markOneRead(notif.id) }}
-                              className={`w-full text-left flex items-start gap-3 p-3 rounded-lg border transition-colors ${notif.read ? 'border-transparent opacity-60' : 'border-gray-100 bg-gray-50/50 hover:bg-gray-50'}`}
+                              className={`w-full text-left flex items-start gap-3 p-3 rounded-lg border border-l-2 transition-colors ${notif.read ? 'border-transparent border-l-transparent opacity-60 hover:opacity-80' : 'border-gray-100 border-l-[#c47b32] bg-gray-50/50 hover:bg-gray-50'}`}
                             >
                               <div className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center shrink-0 mt-0.5`}>
                                 <IconComp className={`h-4 w-4 ${iconColor}`} />
@@ -868,11 +898,11 @@ function TopHeader({
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <p className={`text-sm font-medium text-gray-900 ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
-                                  {!notif.read && <span className="w-2 h-2 rounded-full bg-[#123c36] shrink-0" />}
+                                  {!notif.read && <span className="w-2 h-2 rounded-full bg-[#c47b32] shrink-0" />}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line line-clamp-3">{notif.message}</p>
-                                <p className="text-[10px] text-gray-400 mt-1">
-                                  {format(parseISO(notif.createdAt), 'MMM d \'at\' h:mm a')}
+                                <p className="text-[10px] text-gray-400 mt-1 tabular-nums">
+                                  {timeAgo(notif.createdAt)}
                                 </p>
                               </div>
                             </button>
@@ -911,8 +941,8 @@ function TopHeader({
                                 {req.message && (
                                   <p className="text-xs text-gray-500 truncate mt-0.5">&ldquo;{req.message}&rdquo;</p>
                                 )}
-                                <p className="text-[10px] text-gray-400 mt-1">
-                                  {format(parseISO(req.createdAt), 'MMM d, yyyy \'at\' h:mm a')}
+                                <p className="text-[10px] text-gray-400 mt-1 tabular-nums" title={format(parseISO(req.createdAt), 'MMM d, yyyy \'at\' h:mm a')}>
+                                  {timeAgo(req.createdAt)}
                                 </p>
                               </div>
                             </div>
@@ -1715,6 +1745,8 @@ function EmployeeSubmitReport() {
       setComments('')
       queryClient.invalidateQueries({ queryKey: ['my-reports', monthStr] })
       queryClient.invalidateQueries({ queryKey: ['my-reports-all'] })
+      // Submission auto-reads reminder nudges server-side; refresh the bell.
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
     onError: (err) => {
       if (err instanceof ApiError) {
@@ -1995,7 +2027,7 @@ function EmployeeSubmitReport() {
             <Clock className="h-4 w-4 text-[#123c36]" />
             <p className="text-xs font-semibold text-[#123c36]">Deadline</p>
           </div>
-          <p className="text-xs text-gray-500">Reports should be submitted by 6:00 PM daily</p>
+          <p className="text-xs text-gray-500">Reports should be submitted by {formatDeadlineLabel(user?.reportDeadline)} daily</p>
         </div>
         <div className="rounded-xl bg-green-50/50 border border-green-100 p-4">
           <div className="flex items-center gap-2 mb-1">
@@ -4022,6 +4054,7 @@ function SettingsView() {
   const [showNewPwd, setShowNewPwd] = useState(false)
   const [showConfirmPwd, setShowConfirmPwd] = useState(false)
   const [changeLoading, setChangeLoading] = useState(false)
+  const [forgotOpen, setForgotOpen] = useState(false)
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -4201,6 +4234,30 @@ function SettingsView() {
 
       {/* Organization Reporting Preferences (admins only) */}
       {isAdminAccount && <OrganizationSettingsCard />}
+
+      {/* Password Reset Request (employees — completes the review loop with the admin Overview card) */}
+      {!isAdminAccount && (
+        <div className="product-card p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <Lock className="h-5 w-5 text-[#123c36]" />
+            <h2 className="text-base font-semibold text-gray-900">Password reset request</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Lost access to your account? Send a request to your organization administrator,
+            who reviews it in the workspace overview and updates your credentials.
+          </p>
+          <Button
+            variant="outline"
+            className="border-gray-200 rounded-lg"
+            onClick={() => setForgotOpen(true)}
+          >
+            <Lock className="mr-2 h-4 w-4" />
+            Request password reset
+          </Button>
+        </div>
+      )}
+
+      <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
 
       {/* Logout */}
       <div className="product-card p-6">
