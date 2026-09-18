@@ -1,5 +1,5 @@
 /**
- * UFMI Report Intelligence Engine — Statistics & Processing
+ * NIWMS Report Intelligence Engine — Statistics & Processing
  * 
  * Core processing pipeline:
  *   1. Clean data (deduplicate, normalize)

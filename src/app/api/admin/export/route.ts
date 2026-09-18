@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 
     // Create Excel workbook
     const workbook = new ExcelJS.Workbook()
-    workbook.creator = 'UFMI Daily Report System'
+    workbook.creator = 'NIWMS Workforce Reporting'
     workbook.created = new Date()
 
     const BRANDED = 'FF0B1F6D'

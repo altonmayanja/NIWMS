@@ -45,10 +45,13 @@ async function seed() {
     }
 
     for (const fixture of syntheticOrganizations) {
+      // trialEndsAt is set explicitly so seeding works on providers without
+      // database-level defaults (e.g. SQLite local development).
+      const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
       const organization = await prisma.saaSOrganization.upsert({
         where: { slug: fixture.slug },
         update: { name: fixture.name, status: 'trial' },
-        create: { name: fixture.name, slug: fixture.slug, status: 'trial' },
+        create: { name: fixture.name, slug: fixture.slug, status: 'trial', trialEndsAt },
       });
       const plan = planMap.get(fixture.planCode);
       await prisma.saaSSubscription.upsert({
@@ -96,6 +99,20 @@ async function seed() {
         });
       }
       await prisma.saaSAuditLog.create({ data: { organizationId: organization.id, actorUserId: admin.id, action: 'synthetic_seed', resourceType: 'organization', resourceId: organization.id, metadata: { source: 'certification' } } });
+
+      // Organization administrator fixture (additive). Gives certification and
+      // local development a dedicated ORG_ADMIN without touching existing rows.
+      const orgAdminUsername = `${fixture.slug.replaceAll('-', '')}.orgadmin@example.test`;
+      const orgAdmin = await prisma.user.upsert({
+        where: { username: orgAdminUsername },
+        update: { passwordHash, role: 'admin', status: 'active' },
+        create: { username: orgAdminUsername, passwordHash, role: 'admin', status: 'active' },
+      });
+      await prisma.saaSOrganizationMembership.upsert({
+        where: { organizationId_userId: { organizationId: organization.id, userId: orgAdmin.id } },
+        update: { role: 'admin', status: 'active' },
+        create: { organizationId: organization.id, userId: orgAdmin.id, role: 'admin', status: 'active' },
+      });
     }
     console.log('Platform and synthetic certification fixtures seeded.');
   } finally {

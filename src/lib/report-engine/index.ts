@@ -1,5 +1,5 @@
 /**
- * UFMI Report Intelligence Engine v2.1
+ * NIWMS Report Intelligence Engine v2.1
  *
  * A fully internal, rule-based intelligence engine that analyzes
  * employee activity submissions and generates consistent monthly reports.

@@ -28,10 +28,32 @@ export async function GET(request: NextRequest) {
     const employee = await getEmployee(payload.userId, tenant.organizationId)
     if (!employee) return NextResponse.json([])
     const month = new URL(request.url).searchParams.get('month')
-    const reports = await db.reportingDailyReport.findMany({
+    const rows = await db.reportingDailyReport.findMany({
       where: { organizationId: tenant.organizationId, employeeId: employee.id, ...(month ? { reportDate: { startsWith: month } } : {}) },
       orderBy: { reportDate: 'desc' },
     })
+    // Normalize to the DailyReport contract the dashboard consumes.
+    const account = await db.user.findUnique({ where: { id: payload.userId }, select: { id: true, username: true, role: true, status: true, profile: true } })
+    const reports = rows.map((row) => ({
+      id: row.id,
+      userId: payload.userId,
+      date: row.reportDate,
+      activityText: row.activityText,
+      location: row.location,
+      timeIn: row.timeIn,
+      timeOut: row.timeOut,
+      comments: row.comments,
+      createdAt: row.createdAt.toISOString(),
+      user: account
+        ? {
+            ...account,
+            profile: {
+              employeeId: account.profile?.employeeId ?? employee.employeeCode,
+              position: account.profile?.position ?? null,
+            },
+          }
+        : undefined,
+    }))
     return NextResponse.json(reports)
   } catch (error) {
     console.error('Get reports error:', error)

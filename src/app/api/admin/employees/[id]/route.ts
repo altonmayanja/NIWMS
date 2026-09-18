@@ -13,6 +13,24 @@ async function authenticateAdmin(request: NextRequest) {
   return payload
 }
 
+// Resolve the target user and verify it belongs to the administrator's
+// organization through the legacy link OR an active canonical membership.
+async function findOrganizationUser(userId: string, organizationId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    include: { profile: true, memberships: true },
+  })
+  if (!user) return null
+  const legacyMatch =
+    user.organizationId === organizationId ||
+    user.memberships.some((membership) => membership.organizationId === organizationId && membership.status === 'active')
+  if (legacyMatch) return user
+  const canonicalMembership = await db.saaSOrganizationMembership.findFirst({
+    where: { userId, organizationId, status: 'active' },
+  })
+  return canonicalMembership ? user : null
+}
+
 // PATCH /api/admin/employees/[id] - Update employee
 export async function PATCH(
   request: NextRequest,
@@ -28,10 +46,7 @@ export async function PATCH(
     const body = await request.json()
     const { username, status, position, employeeId, password } = body
 
-    const user = await db.user.findUnique({
-      where: { id, organizationId: context.organizationId },
-      include: { profile: true, memberships: true },
-    })
+    const user = await findOrganizationUser(id, context.organizationId)
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
@@ -50,8 +65,8 @@ export async function PATCH(
 
     // Update username
     if (username && typeof username === 'string' && username.trim()) {
-      // Check if username is taken by another user
-      const existing = await db.user.findFirst({ where: { username: username.trim(), organizationId: context.organizationId, NOT: { id } } })
+      // Check if username is taken by another user (usernames are globally unique)
+      const existing = await db.user.findFirst({ where: { username: username.trim(), NOT: { id } } })
       if (existing) {
         return NextResponse.json({ error: 'Username is already taken' }, { status: 409 })
       }
@@ -68,8 +83,13 @@ export async function PATCH(
 
     // Update employee ID
     if (employeeId && typeof employeeId === 'string' && employeeId.trim()) {
-      const existing = await db.employeeProfile.findFirst({ where: { employeeId: employeeId.trim(), user: { organizationId: context.organizationId }, NOT: { userId: id } } })
-      if (existing) {
+      const existingCanonical = await db.reportingEmployee.findFirst({
+        where: { organizationId: context.organizationId, employeeCode: employeeId.trim(), membership: { userId: { not: id } } },
+      })
+      const existing = !existingCanonical
+        ? await db.employeeProfile.findFirst({ where: { employeeId: employeeId.trim(), user: { organizationId: context.organizationId }, NOT: { userId: id } } })
+        : null
+      if (existingCanonical || existing) {
         return NextResponse.json({ error: 'Employee ID is already taken' }, { status: 409 })
       }
       profileUpdates.employeeId = employeeId.trim()
@@ -82,7 +102,7 @@ export async function PATCH(
     // Update user
     if (Object.keys(updates).length > 0) {
       await db.user.update({
-        where: { id, organizationId: context.organizationId },
+        where: { id },
         data: updates,
       })
     }
@@ -129,7 +149,7 @@ export async function PATCH(
     })
 
     const updatedUser = await db.user.findUnique({
-      where: { id, organizationId: context.organizationId },
+      where: { id },
       include: { profile: true },
     })
 
@@ -153,9 +173,7 @@ export async function DELETE(
 
     const { id } = await params
 
-    const user = await db.user.findUnique({
-      where: { id, organizationId: context.organizationId },
-    })
+    const user = await findOrganizationUser(id, context.organizationId)
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
@@ -175,7 +193,7 @@ export async function DELETE(
       await db.reportingEmployee.delete({ where: { id: canonicalEmployee.id } })
       await db.saaSOrganizationMembership.delete({ where: { id: canonicalEmployee.membershipId } })
     }
-    await db.user.delete({ where: { id, organizationId: context.organizationId } })
+    await db.user.delete({ where: { id } })
 
     await db.saaSAuditLog.create({
       data: {

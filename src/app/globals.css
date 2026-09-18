@@ -41,6 +41,19 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Natural Intellects product palette (marketing + authenticated app) */
+  --color-ni-primary: #123c36;
+  --color-ni-primary-deep: #102f2b;
+  --color-ni-primary-hover: #1d5249;
+  --color-ni-accent: #c47b32;
+  --color-ni-accent-deep: #b2761b;
+  --color-ni-gold: #e9b44c;
+  --color-ni-bg: #f4f6f8;
+  --color-ni-surface: #FFFFFF;
+  --color-ni-border: #dce4e1;
+  --color-ni-muted: #e9f0ee;
+  /* Legacy UFMI palette — retained only for the internal legacy /portal
+     compatibility surface. Never use these in customer-facing product UI. */
   --color-ufmi-navy: #0B1F6D;
   --color-ufmi-navy-light: #1e3a8a;
   --color-ufmi-navy-50: #eef2ff;
@@ -87,7 +100,7 @@
   --sidebar-ring: #c47b32;
 }
 
-/* UFMI Design System - Base */
+/* Natural Intellects product base */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -106,7 +119,7 @@
     *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
   }
   body {
-    @apply bg-ufmi-bg text-foreground font-sans;
+    @apply bg-ni-bg text-foreground font-sans;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -145,10 +158,14 @@
   }
 }
 
-/* UFMI Card Styles */
-.ufmi-card {
-  @apply bg-white rounded-xl border border-ufmi-border;
+/* Product card — used across the authenticated NIWMS workspace */
+.product-card {
+  @apply bg-white rounded-xl border border-ni-border;
   box-shadow: 0 1px 2px rgba(16, 47, 43, 0.04), 0 8px 24px rgba(16, 47, 43, 0.035);
+}
+
+.product-card-dark {
+  @apply bg-ni-primary-deep rounded-2xl;
 }
 
 /* Product shell refinements: compact, editorial, and information-dense. */
@@ -189,18 +206,14 @@
   .product-shell button:active { transform: none; }
 }
 
-.ufmi-card-dark {
-  @apply bg-ufmi-navy rounded-2xl;
-}
-
-/* UFMI Input Focus */
+/* Product input focus */
 @layer base {
   input:focus,
   textarea:focus,
   select:focus {
     outline: none;
-    border-color: #0B1F6D !important;
-    box-shadow: 0 0 0 3px rgba(11, 31, 109, 0.08) !important;
+    border-color: #123c36 !important;
+    box-shadow: 0 0 0 3px rgba(18, 60, 54, 0.1) !important;
   }
 }
 
@@ -220,7 +233,29 @@
   transition: transform 0.3s ease;
 }
 
-/* UFMI Table Header */
+/* Product table header */
+.product-table-header th {
+  color: #123c36;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+/* ---------------------------------------------------------------------
+   LEGACY UFMI COMPATIBILITY STYLES
+   The internal legacy /portal surface still relies on these classes.
+   They are not part of the commercial NIWMS product identity.
+   --------------------------------------------------------------------- */
+.ufmi-card {
+  @apply bg-white rounded-xl border border-ufmi-border;
+  box-shadow: 0 1px 2px rgba(16, 47, 43, 0.04), 0 8px 24px rgba(16, 47, 43, 0.035);
+}
+
+.ufmi-card-dark {
+  @apply bg-ufmi-navy rounded-2xl;
+}
+
 .ufmi-table-header th {
   color: #0B1F6D;
   font-weight: 600;
@@ -228,5 +263,3 @@
   text-transform: uppercase;
   letter-spacing: 0.025em;
 }
-
-

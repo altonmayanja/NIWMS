@@ -18,6 +18,6 @@ export async function GET(request: NextRequest) {
   ])
   return NextResponse.json({
     metrics: { organizations, activeOrganizations, trials, subscriptions, suspended, employees, reports },
-    organizations: recent.map((organization) => ({ ...organization, memberCount: organization.memberships.length, subscription: organization.subscriptions[0] || null, memberships: undefined, subscriptions: undefined })),
+    organizations: recent.map((organization) => ({ ...organization, memberCount: organization.memberships.length, _count: { users: organization.memberships.length }, subscription: organization.subscriptions[0] || null, memberships: undefined, subscriptions: undefined })),
   })
 }

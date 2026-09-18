@@ -17,10 +17,32 @@ export async function GET(request: NextRequest) {
     const month = params.get('month')
     const employeeId = params.get('employeeId')
     const where = { organizationId: tenant.organizationId, ...(month ? { month } : {}), ...(employeeId ? { employeeId } : {}) }
-    const [total, reports] = await Promise.all([
+    const [total, rows] = await Promise.all([
       db.reportingMonthlyReport.count({ where }),
       db.reportingMonthlyReport.findMany({ where, include: { employee: { include: { membership: true, position: true } } }, orderBy: { month: 'desc' }, skip: (page - 1) * pageSize, take: pageSize }),
     ])
+    // Normalize to the dashboard contract: reports carry a `user` identity.
+    const userIds = [...new Set(rows.map((row) => row.employee.membership?.userId).filter((id): id is string => Boolean(id)))]
+    const users = userIds.length
+      ? await db.user.findMany({ where: { id: { in: userIds } }, select: { id: true, username: true, role: true, status: true } })
+      : []
+    const usersById = new Map(users.map((user) => [user.id, user]))
+    const reports = rows.map((row) => {
+      const account = row.employee.membership?.userId ? usersById.get(row.employee.membership.userId) : undefined
+      return {
+        ...row,
+        user: {
+          id: account?.id ?? row.employee.id,
+          username: account?.username ?? row.employee.displayName,
+          role: account?.role ?? 'employee',
+          status: account?.status ?? 'active',
+          profile: {
+            employeeId: row.employee.employeeCode,
+            position: row.employee.position?.name ?? null,
+          },
+        },
+      }
+    })
     return NextResponse.json({ reports, total, page, pageSize, totalPages: Math.ceil(total / pageSize) })
   } catch (error) {
     console.error('Admin list monthly reports error:', error)

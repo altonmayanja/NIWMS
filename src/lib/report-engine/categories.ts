@@ -1,5 +1,5 @@
 /**
- * UFMI Report Intelligence Engine — Activity Categories
+ * NIWMS Report Intelligence Engine — Activity Categories
  * 
  * Configurable by administrators. Each category has a set of keywords
  * used for automatic classification of employee activity descriptions.

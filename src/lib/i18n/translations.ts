@@ -15,8 +15,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.signOut': 'Sign Out',
 
     // Login Page
-    'login.title': 'UFMI Portal',
-    'login.subtitle': 'Uganda Federation of Movie Industry',
+    'login.title': 'NIWMS',
+    'login.subtitle': 'Natural Intellects Workforce Management System',
     'login.username': 'Username',
     'login.usernamePlaceholder': 'Enter your username',
     'login.password': 'Password',
@@ -46,15 +46,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     'forgot.backToLogin': 'Back to Login',
 
     // Sidebar
-    'sidebar.portal': 'UFMI Portal',
+    'sidebar.portal': 'NIWMS',
     'sidebar.operationsPortal': 'Operations Portal',
     'sidebar.navigation': 'Navigation',
     'sidebar.administrator': 'Administrator',
-    'sidebar.copyright': 'Uganda Federation of Movie Industry',
+    'sidebar.copyright': 'Natural Intellects Ltd',
 
     // Dashboard
     'dashboard.title': 'Operational Overview',
-    'dashboard.subtitle': 'Live metrics for the Uganda Federation of Movie Industry',
+    'dashboard.subtitle': 'Live metrics for your organization',
     'dashboard.exportData': 'Export Data',
     'dashboard.addEmployee': 'Add Employee',
     'dashboard.totalEmployees': 'Total Employees',
@@ -215,8 +215,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.signOut': 'Ffula / Toka',
 
     // Login Page
-    'login.title': 'UFMI Portal',
-    'login.subtitle': 'Uganda Federation of Movie Industry',
+    'login.title': 'NIWMS',
+    'login.subtitle': 'Natural Intellects Workforce Management System',
     'login.username': "Erinnya ly'okwegata",
     'login.usernamePlaceholder': 'Yingiza erinnya lyo',
     'login.password': "Ekigambo eky'okunnyonnyola",
@@ -225,10 +225,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'login.signingIn': 'Okwegata kungenda...',
     'login.forgotPassword': 'Wagobwa Ekigambo?',
     'login.helpCenter': "Enkola y'Obuyambi",
-    'login.welcome': 'Walewo ku UFMI Portal!',
+    'login.welcome': 'Welcomed to NIWMS!',
     'login.error': 'Kikyankale ddala. Yamyeeko nno.',
     'login.encrypted': 'OKWESIGA EKIGAMBO OKUTANDIKA OKUTUKA',
-    'login.copyright': 'Uganda Federation of Movie Industry. Obulamu bwonna bwenkomerero.',
+    'login.copyright': 'Natural Intellects Ltd. All rights reserved.',
 
     // Forgot Password
     'forgot.title': 'Wagobwa Ekigambo?',
@@ -246,15 +246,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     'forgot.backToLogin': 'Dda ku Okwegata',
 
     // Sidebar
-    'sidebar.portal': 'UFMI Portal',
+    'sidebar.portal': 'NIWMS',
     'sidebar.operationsPortal': 'Portal y\'Eby\'emirimu',
     'sidebar.navigation': 'Endagiriro',
     'sidebar.administrator': 'Omukulembeze',
-    'sidebar.copyright': 'Uganda Federation of Movie Industry',
+    'sidebar.copyright': 'Natural Intellects Ltd',
 
     // Dashboard
     'dashboard.title': "Endabika y'Eby'emirimu",
-    'dashboard.subtitle': 'Embalirira ezitali zikyankale za Uganda Federation of Movie Industry',
+    'dashboard.subtitle': 'Embalirira z\'olukiiko lwawo zonna',
     'dashboard.exportData': 'Ttaba mu Biko',
     'dashboard.addEmployee': 'Yambika Omukozi',
     'dashboard.totalEmployees': 'Abakozi Bona',
@@ -415,8 +415,8 @@ export const translations: Record<Locale, Record<string, string>> = {
     'nav.signOut': 'Toka',
 
     // Login Page
-    'login.title': 'UFMI Portal',
-    'login.subtitle': 'Uganda Federation of Movie Industry',
+    'login.title': 'NIWMS',
+    'login.subtitle': 'Natural Intellects Workforce Management System',
     'login.username': 'Jina la Mtumiaji',
     'login.usernamePlaceholder': 'Ingiza jina lako la mtumiaji',
     'login.password': 'Nenosiri',
@@ -425,10 +425,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     'login.signingIn': 'Inaingia...',
     'login.forgotPassword': 'Umesahau Nenosiri?',
     'login.helpCenter': 'Kituo cha Msaada',
-    'login.welcome': 'Karibu UFMI Portal!',
+    'login.welcome': 'Karibu NIWMS!',
     'login.error': 'Kuna hitilafu. Tafadhali jaribu tena.',
     'login.encrypted': 'MLANGO ULIOHIFADHIWA MWISHO KU MWISHO',
-    'login.copyright': 'Uganda Federation of Movie Industry. Haki zote zimehifadhiwa.',
+    'login.copyright': 'Natural Intellects Ltd. Haki zote zimehifadhiwa.',
 
     // Forgot Password
     'forgot.title': 'Umesahau Nenosiri?',
@@ -446,15 +446,15 @@ export const translations: Record<Locale, Record<string, string>> = {
     'forgot.backToLogin': 'Rudi kwenye Ingia',
 
     // Sidebar
-    'sidebar.portal': 'UFMI Portal',
+    'sidebar.portal': 'NIWMS',
     'sidebar.operationsPortal': 'Lango la Uendeshaji',
     'sidebar.navigation': 'Uongozi',
     'sidebar.administrator': 'Msimamizi',
-    'sidebar.copyright': 'Uganda Federation of Movie Industry',
+    'sidebar.copyright': 'Natural Intellects Ltd',
 
     // Dashboard
     'dashboard.title': 'Muhtasari wa Uendeshaji',
-    'dashboard.subtitle': 'Vipimo vya moja kwa moja kwa Uganda Federation of Movie Industry',
+    'dashboard.subtitle': 'Vipimo vya moja kwa moja kwa shirika lako',
     'dashboard.exportData': 'Eksporti Data',
     'dashboard.addEmployee': 'Ongeza Mfanyakazi',
     'dashboard.totalEmployees': 'Wafanyakazi Wote',

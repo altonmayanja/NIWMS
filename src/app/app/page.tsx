@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -187,7 +188,7 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
       <SheetContent side="right" className="overflow-y-auto" aria-label="Help Center">
         <SheetHeader className="px-6 pt-8">
           <SheetTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <HelpCircle className="h-5 w-5 text-[#0B1F6D]" />
+            <HelpCircle className="h-5 w-5 text-[#123c36]" />
             Help Center
           </SheetTitle>
           <SheetDescription>Find answers to common questions and contact support</SheetDescription>
@@ -197,7 +198,7 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
           {/* FAQ Section */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-              <BookOpen className="h-4 w-4 text-[#0B1F6D]" />
+              <BookOpen className="h-4 w-4 text-[#123c36]" />
               Frequently Asked Questions
             </h3>
             <div className="space-y-2">
@@ -227,26 +228,26 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
           {/* Contact Information */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-              <MessageSquare className="h-4 w-4 text-[#0B1F6D]" />
+              <MessageSquare className="h-4 w-4 text-[#123c36]" />
               Contact Support
             </h3>
             <div className="space-y-2">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                <Mail className="h-4 w-4 text-[#0B1F6D]" />
+                <Mail className="h-4 w-4 text-[#123c36]" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Email</p>
                   <p className="text-xs text-gray-500">ugandafmi3@gmail.com</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                <Phone className="h-4 w-4 text-[#0B1F6D]" />
+                <Phone className="h-4 w-4 text-[#123c36]" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Phone</p>
                   <p className="text-xs text-gray-500">+256782823117</p>
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50">
-                <MonitorSmartphone className="h-4 w-4 text-[#0B1F6D]" />
+                <MonitorSmartphone className="h-4 w-4 text-[#123c36]" />
                 <div>
                   <p className="text-sm font-medium text-gray-700">Office Hours</p>
                   <p className="text-xs text-gray-500">Mon - Fri, 8:00 AM - 5:00 PM EAT</p>
@@ -256,8 +257,8 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
           </div>
 
           {/* System Info */}
-          <div className="rounded-xl bg-[#0B1F6D]/5 border border-[#0B1F6D]/10 p-4">
-            <h3 className="text-sm font-semibold text-[#0B1F6D] flex items-center gap-2 mb-2">
+          <div className="rounded-xl bg-[#123c36]/5 border border-[#123c36]/10 p-4">
+            <h3 className="text-sm font-semibold text-[#123c36] flex items-center gap-2 mb-2">
               <Info className="h-4 w-4" />
               System Information
             </h3>
@@ -272,183 +273,6 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
     </Sheet>
   )
 }
-
-// =====================================================================
-// LOGIN PAGE
-// =====================================================================
-
-function LoginPage({ onHelpOpen }: { onHelpOpen?: () => void }) {
-  const [organization, setOrganization] = useState('')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showLoginPwd, setShowLoginPwd] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [forgotOpen, setForgotOpen] = useState(false)
-  const login = useAuthStore((s) => s.login)
-  const { t, locale, setLocale } = useTranslation()
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    try {
-      const data = await apiPost<{ token: string; user: User }>('/api/auth/login', { organization, username: email, password })
-      login(data.token, data.user)
-      toast.success(t('login.welcome'))
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else {
-        setError(t('login.error'))
-      }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(135deg, #0B1F6D 0%, #0d2478 50%, #132e8a 100%)' }}>
-      {/* Subtle pattern overlay */}
-      <div className="absolute inset-0 opacity-5" style={{ backgroundImage: 'radial-gradient(circle at 25px 25px, white 1px, transparent 1px)', backgroundSize: '50px 50px' }} />
-
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="w-full max-w-[420px] relative z-10"
-      >
-        <Card className="border-0 shadow-2xl rounded-2xl overflow-hidden">
-          {/* Header section with branding */}
-          <div className="px-8 pt-10 pb-6 text-center" style={{ background: 'linear-gradient(180deg, #f8f9fc 0%, #ffffff 100%)' }}>
-            <div className="mx-auto w-16 h-16 rounded-2xl overflow-hidden mb-5 shadow-lg">
-              <Image src="/logo.png" alt="Natural Intellects logo" width={64} height={64} className="w-full h-full object-contain" />
-            </div>
-  <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Sign in to your organization</h1>
-  <p className="text-sm text-gray-500 mt-1">Enter your company, email, and password to continue.</p>
-          </div>
-
-          <CardContent className="px-8 pb-8 pt-2">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-                >
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
-                </motion.div>
-              )}
-
-  <div className="space-y-2">
-  <Label htmlFor="organization" className="text-sm font-medium text-gray-700">Company / Organization</Label>
-  <Input
-  id="organization"
-  placeholder="Company name or organization code"
-  value={organization}
-  onChange={(e) => setOrganization(e.target.value)}
-  required
-  className="h-11 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
-  />
-  </div>
-
-  <div className="space-y-2">
-  <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
-                <div className="relative">
-                  <UserCircle className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="h-11 pl-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">{t('login.password')}</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="password"
-                    type={showLoginPwd ? 'text' : 'password'}
-                    placeholder={t('login.passwordPlaceholder')}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="h-11 pl-10 pr-10 rounded-lg border-gray-200 bg-gray-50/50 focus:bg-white transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLoginPwd(!showLoginPwd)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showLoginPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button type="button" onClick={() => setForgotOpen(true)} className="text-sm font-medium text-[#0B1F6D] hover:text-[#1e3a8a] transition-colors">
-                  {t('login.forgotPassword')}
-                </button>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-11 bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white font-medium rounded-lg transition-colors"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('login.signingIn')}
-                  </>
-                ) : (
-                  <>
-                    {t('login.signIn')}
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </form>
-
-            {/* Footer links */}
-            <div className="flex items-center justify-between mt-6 pt-5 border-t border-gray-100">
-              <button type="button" onClick={onHelpOpen} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-[#0B1F6D] transition-colors">
-                <HelpCircle className="h-3.5 w-3.5" />
-                {t('login.helpCenter')}
-              </button>
-              <button type="button" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
-                {locale === 'en' ? 'English' : locale === 'lg' ? 'Luganda' : 'Swahili'}
-              </button>
-            </div>
-          </CardContent>
-
-          {/* Security badge */}
-          <div className="bg-gray-50 border-t border-gray-100 px-8 py-4">
-            <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
-              <Lock className="h-3 w-3" />
-              <span className="font-medium tracking-wider">{t('login.encrypted')}</span>
-            </div>
-          </div>
-        </Card>
-
-        <p className="text-center text-xs text-white/30 mt-6">
-          &copy; {new Date().getFullYear()} {t('login.copyright')}
-        </p>
-
-        {/* Forgot Password Dialog */}
-        <ForgotPasswordDialog open={forgotOpen} onOpenChange={setForgotOpen} />
-      </motion.div>
-    </div>
-  )
-}
-
 // =====================================================================
 // FORGOT PASSWORD DIALOG
 // =====================================================================
@@ -517,7 +341,7 @@ function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
                 {t('forgot.successMessage')}
               </p>
             </div>
-            <Button onClick={() => handleClose(false)} className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg">
+            <Button onClick={() => handleClose(false)} className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg">
               {t('forgot.backToLogin')}
             </Button>
           </div>
@@ -556,7 +380,7 @@ function ForgotPasswordDialog({ open, onOpenChange }: { open: boolean; onOpenCha
               <Button type="button" variant="outline" onClick={() => handleClose(false)} className="flex-1 rounded-lg border-gray-200">
                 {t('forgot.cancel')}
               </Button>
-              <Button type="submit" disabled={loading} className="flex-1 bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg">
+              <Button type="submit" disabled={loading} className="flex-1 bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg">
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -614,8 +438,8 @@ function Sidebar({
         </div>
         {!collapsed && (
           <div className="overflow-hidden">
-            <h1 className="text-sm font-bold text-white leading-none tracking-tight">{t('sidebar.portal')}</h1>
-            <p className="text-[10px] text-blue-300/60 mt-0.5">{t('sidebar.operationsPortal')}</p>
+            <h1 className="text-sm font-bold text-white leading-none tracking-tight">NIWMS</h1>
+            <p className="text-[10px] text-[#9ab8b1]/80 mt-0.5">Natural Intellects</p>
           </div>
         )}
       </div>
@@ -707,7 +531,7 @@ function Sidebar({
       {!collapsed && (
         <div className="px-4 pb-3">
           <p className="text-[9px] text-blue-300/25 leading-tight">
-            &copy; {new Date().getFullYear()} {t('sidebar.copyright')}
+            &copy; {new Date().getFullYear()} Natural Intellects Ltd
           </p>
         </div>
       )}
@@ -750,7 +574,7 @@ function MobileSidebar({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="p-0 w-[260px]" style={{ background: '#0B1F6D' }}>
+      <SheetContent side="left" className="p-0 w-[260px]" style={{ background: '#102f2b' }}>
         <SheetTitle className="sr-only">{t('sidebar.navigation')}</SheetTitle>
         {/* Logo */}
         <div className="flex items-center gap-3 px-5 h-16 border-b border-white/10">
@@ -758,8 +582,8 @@ function MobileSidebar({
             <Image src="/logo.png" alt="Natural Intellects logo" width={36} height={36} className="w-full h-full object-contain" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-white leading-none">{t('sidebar.portal')}</h1>
-            <p className="text-[10px] text-blue-300/60 mt-0.5">{t('sidebar.operationsPortal')}</p>
+            <h1 className="text-sm font-bold text-white leading-none">NIWMS</h1>
+            <p className="text-[10px] text-[#9ab8b1]/80 mt-0.5">Natural Intellects</p>
           </div>
         </div>
 
@@ -928,7 +752,7 @@ function TopHeader({
           >
             <Bell className="h-4 w-4" />
             {totalBadge > 0 ? (
-              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[#D94B2B] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[#c47b32] text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                 {totalBadge > 99 ? '99+' : totalBadge}
               </span>
             ) : null}
@@ -948,7 +772,7 @@ function TopHeader({
 
           {/* User */}
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-[#0B1F6D] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-full bg-[#123c36] flex items-center justify-center">
               <span className="text-xs font-bold text-white uppercase">{(user?.username || 'U').charAt(0)}</span>
             </div>
             <div className="hidden md:block">
@@ -956,7 +780,7 @@ function TopHeader({
               <p className="text-[11px] text-gray-400 mt-0.5">
                 {user?.role === 'admin' ? (
                   <span className="inline-flex items-center gap-1">
-                    <span className="px-1.5 py-0.5 bg-[#0B1F6D] text-white text-[9px] font-bold rounded leading-none">ADMIN</span>
+                    <span className="px-1.5 py-0.5 bg-[#123c36] text-white text-[9px] font-bold rounded leading-none">ADMIN</span>
                     <span className="ml-0.5">Administrator</span>
                   </span>
                 ) : (
@@ -973,7 +797,7 @@ function TopHeader({
         <SheetContent side="right" className="overflow-y-auto" aria-label="Notifications">
           <SheetHeader className="px-6 pt-8">
             <SheetTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Bell className="h-5 w-5 text-[#0B1F6D]" />
+              <Bell className="h-5 w-5 text-[#123c36]" />
               {t('notifications.title')}
             </SheetTitle>
             <SheetDescription>
@@ -994,7 +818,7 @@ function TopHeader({
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Notifications</h3>
                       {unreadCount > 0 && (
-                        <button onClick={markAllRead} className="text-[10px] font-medium text-[#0B1F6D] hover:underline">
+                        <button onClick={markAllRead} className="text-[10px] font-medium text-[#123c36] hover:underline">
                           {t('notifications.markAllRead')}
                         </button>
                       )}
@@ -1017,7 +841,7 @@ function TopHeader({
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <p className={`text-sm font-medium text-gray-900 ${!notif.read ? 'font-semibold' : ''}`}>{notif.title}</p>
-                                  {!notif.read && <span className="w-2 h-2 rounded-full bg-[#0B1F6D] shrink-0" />}
+                                  {!notif.read && <span className="w-2 h-2 rounded-full bg-[#123c36] shrink-0" />}
                                 </div>
                                 <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-line line-clamp-3">{notif.message}</p>
                                 <p className="text-[10px] text-gray-400 mt-1">
@@ -1177,13 +1001,13 @@ function PasswordResetRequests() {
 
   return (
     <>
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
               Password Reset Requests
               {pendingCount > 0 && (
-                <Badge className="bg-[#D94B2B]/10 text-[#D94B2B] rounded-full px-2.5 text-xs font-bold">
+                <Badge className="bg-[#c47b32]/10 text-[#c47b32] rounded-full px-2.5 text-xs font-bold">
                   {pendingCount}
                 </Badge>
               )}
@@ -1330,7 +1154,7 @@ function AdminOverview() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Operational Overview</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Live metrics for the Operations intelligence for growing organizations</p>
+          <p className="text-sm text-gray-500 mt-0.5">Live reporting health for your organization</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -1346,7 +1170,7 @@ function AdminOverview() {
           </Button>
           <Button
             onClick={() => setAddOpen(true)}
-            className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg text-xs font-medium gap-1.5 h-9 px-4"
+            className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg text-xs font-medium gap-1.5 h-9 px-4"
           >
             <Plus className="h-3.5 w-3.5" />
             Add Employee
@@ -1420,7 +1244,7 @@ function AdminOverview() {
             <Button
               onClick={() => addMutation.mutate(addForm)}
               disabled={addMutation.isPending || !addForm.username || !addForm.password || !addForm.employeeId || !addForm.position}
-              className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg"
+              className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg"
             >
               {addMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
               Add Employee
@@ -1437,7 +1261,7 @@ function AdminOverview() {
           ))}
         </div>
       ) : isError || !stats ? (
-        <div className="ufmi-card p-8 flex flex-col items-center text-center">
+        <div className="product-card p-8 flex flex-col items-center text-center">
           <AlertCircle className="h-10 w-10 text-amber-400 mb-3" />
           <p className="text-sm font-medium text-gray-700">Unable to load dashboard statistics</p>
           <p className="text-xs text-gray-400 mt-1">Please check your connection and try again.</p>
@@ -1458,18 +1282,18 @@ function AdminOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0 }}
           >
-            <div className="ufmi-card p-6">
+            <div className="product-card p-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Employees</p>
                   <p className="text-3xl font-bold text-gray-900 mt-1">{stats.totalEmployees}</p>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-[#0B1F6D]/5 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-[#0B1F6D]" />
+                <div className="w-10 h-10 rounded-xl bg-[#123c36]/5 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-[#123c36]" />
                 </div>
               </div>
-              <Badge className="mt-3 bg-green-50 text-green-700 border-green-200 rounded-full px-2 text-[10px] font-medium">
-                +12% from last month
+              <Badge className="mt-3 bg-[#e9f0ee] text-[#356247] border-[#d2ddda] rounded-full px-2 text-[10px] font-medium">
+                Active workforce
               </Badge>
             </div>
           </motion.div>
@@ -1479,7 +1303,7 @@ function AdminOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
           >
-            <div className="ufmi-card p-6">
+            <div className="product-card p-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Active Employees</p>
@@ -1500,13 +1324,13 @@ function AdminOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <div className="ufmi-card p-6">
+            <div className="product-card p-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Pending Reports</p>
                   <p className="text-3xl font-bold text-gray-900 mt-1">{Math.max(pendingReports, 0)}</p>
                 </div>
-                <Badge className="bg-[#D94B2B]/10 text-[#D94B2B] rounded-full px-2.5 text-[10px] font-bold mt-1">
+                <Badge className="bg-[#c47b32]/10 text-[#c47b32] rounded-full px-2.5 text-[10px] font-bold mt-1">
                   URGENT
                 </Badge>
               </div>
@@ -1519,7 +1343,7 @@ function AdminOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
           >
-          <div className="ufmi-card-dark p-6">
+          <div className="product-card-dark p-6">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-blue-200/60">Compliance Score</p>
@@ -1530,7 +1354,7 @@ function AdminOverview() {
               </div>
             </div>
             <div className="mt-3 h-1.5 bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-[#F4B400] rounded-full transition-all" style={{ width: `${complianceScore}%` }} />
+              <div className="h-full bg-[#e9b44c] rounded-full transition-all" style={{ width: `${complianceScore}%` }} />
             </div>
           </div>
         </motion.div>
@@ -1538,7 +1362,7 @@ function AdminOverview() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Position Breakdown */}
-        <div className="ufmi-card p-6">
+        <div className="product-card p-6">
           <div className="mb-5">
             <h2 className="text-base font-semibold text-gray-900">Position Breakdown</h2>
             <p className="text-sm text-gray-500 mt-0.5">Active employees by position</p>
@@ -1553,7 +1377,7 @@ function AdminOverview() {
         </div>
 
         {/* Missing Today's Reports */}
-        <div className="ufmi-card p-6">
+        <div className="product-card p-6">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
@@ -1562,7 +1386,7 @@ function AdminOverview() {
               <p className="text-sm text-gray-500 mt-0.5">Employees who haven&apos;t submitted</p>
             </div>
             {stats.missingTodayReports.length > 0 && (
-              <Badge className="bg-[#D94B2B]/10 text-[#D94B2B] rounded-full px-2.5 text-xs font-bold">
+              <Badge className="bg-[#c47b32]/10 text-[#c47b32] rounded-full px-2.5 text-xs font-bold">
                 {stats.missingTodayReports.length}
               </Badge>
             )}
@@ -1578,8 +1402,8 @@ function AdminOverview() {
               <div className="space-y-1">
                 {stats.missingTodayReports.map((emp) => (
                   <div key={emp.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-gray-50 transition-colors">
-                    <div className="w-8 h-8 rounded-full bg-[#0B1F6D]/5 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-bold text-[#0B1F6D] uppercase">{emp.username.charAt(0)}</span>
+                    <div className="w-8 h-8 rounded-full bg-[#123c36]/5 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold text-[#123c36] uppercase">{emp.username.charAt(0)}</span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-700 truncate">{emp.username}</p>
@@ -1595,7 +1419,7 @@ function AdminOverview() {
       </div>
 
       {/* Recent Reports */}
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <div className="mb-5">
           <h2 className="text-base font-semibold text-gray-900">Recent Reports</h2>
           <p className="text-sm text-gray-500 mt-0.5">Last 10 submitted reports</p>
@@ -1605,7 +1429,7 @@ function AdminOverview() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-gray-100">
             <Table>
-              <TableHeader className="ufmi-table-header bg-gray-50/80">
+              <TableHeader className="product-table-header bg-gray-50/80">
                 <TableRow className="border-b border-gray-100 hover:bg-transparent">
                   <TableHead>Date</TableHead>
                   <TableHead>Employee</TableHead>
@@ -1746,25 +1570,25 @@ function EmployeeSubmitReport() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between gap-4 rounded-xl bg-[#D94B2B]/5 border border-[#D94B2B]/15 px-5 py-4"
+          className="flex items-center justify-between gap-4 rounded-xl bg-[#c47b32]/5 border border-[#c47b32]/15 px-5 py-4"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#D94B2B]/10 flex items-center justify-center">
-              <AlertCircle className="h-5 w-5 text-[#D94B2B]" />
+            <div className="w-10 h-10 rounded-full bg-[#c47b32]/10 flex items-center justify-center">
+              <AlertCircle className="h-5 w-5 text-[#c47b32]" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-[#D94B2B]">You have not submitted today&apos;s report</p>
-              <p className="text-xs text-[#D94B2B]/60 mt-0.5">Please submit your daily activity report before the deadline.</p>
+              <p className="text-sm font-semibold text-[#c47b32]">You have not submitted today&apos;s report</p>
+              <p className="text-xs text-[#c47b32]/60 mt-0.5">Please submit your daily activity report before the deadline.</p>
             </div>
           </div>
-          <Button size="sm" className="bg-[#D94B2B] hover:bg-[#c4411f] text-white rounded-lg shrink-0" onClick={() => document.getElementById('report-form')?.scrollIntoView({ behavior: 'smooth' })}>
+          <Button size="sm" className="bg-[#c47b32] hover:bg-[#b2761b] text-white rounded-lg shrink-0" onClick={() => document.getElementById('report-form')?.scrollIntoView({ behavior: 'smooth' })}>
             Submit Now
           </Button>
         </motion.div>
       )}
 
       {/* Welcome card */}
-      <div className="ufmi-card-dark p-6">
+      <div className="product-card-dark p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="text-sm text-blue-200/50">{format(today, 'EEEE, MMMM d, yyyy')}</p>
@@ -1776,7 +1600,7 @@ function EmployeeSubmitReport() {
             </p>
           </div>
           <Button
-            className="bg-white text-[#0B1F6D] hover:bg-gray-100 rounded-lg font-medium"
+            className="bg-white text-[#123c36] hover:bg-gray-100 rounded-lg font-medium"
             onClick={() => document.getElementById('report-form')?.scrollIntoView({ behavior: 'smooth' })}
           >
             <Send className="mr-2 h-4 w-4" />
@@ -1786,7 +1610,7 @@ function EmployeeSubmitReport() {
       </div>
 
       {/* Report form */}
-      <div id="report-form" className="ufmi-card p-6 max-w-3xl">
+      <div id="report-form" className="product-card p-6 max-w-3xl">
         <h3 className="text-base font-semibold text-gray-900 mb-5">Report Details</h3>
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
@@ -1924,7 +1748,7 @@ function EmployeeSubmitReport() {
             <Button
               type="submit"
               disabled={submitMutation.isPending || !!existingReport}
-              className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium"
+              className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg font-medium"
             >
               {submitMutation.isPending ? (
                 <>
@@ -1949,8 +1773,8 @@ function EmployeeSubmitReport() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl">
         <div className="rounded-xl bg-blue-50/50 border border-blue-100 p-4">
           <div className="flex items-center gap-2 mb-1">
-            <Clock className="h-4 w-4 text-[#0B1F6D]" />
-            <p className="text-xs font-semibold text-[#0B1F6D]">Deadline</p>
+            <Clock className="h-4 w-4 text-[#123c36]" />
+            <p className="text-xs font-semibold text-[#123c36]">Deadline</p>
           </div>
           <p className="text-xs text-gray-500">Reports should be submitted by 6:00 PM daily</p>
         </div>
@@ -2061,15 +1885,15 @@ function EmployeeMyReports() {
           ))}
         </div>
       ) : reports.length === 0 ? (
-        <div className="ufmi-card border-dashed flex flex-col items-center justify-center py-16">
+        <div className="product-card border-dashed flex flex-col items-center justify-center py-16">
           <FileText className="h-12 w-12 text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">No reports for this month</p>
           <p className="text-gray-400 text-sm mt-1">Submit your first report for the selected month</p>
         </div>
       ) : (
-        <div className="ufmi-card overflow-hidden">
+        <div className="product-card overflow-hidden">
           <Table>
-            <TableHeader className="ufmi-table-header bg-gray-50/80">
+            <TableHeader className="product-table-header bg-gray-50/80">
               <TableRow className="border-b border-gray-100 hover:bg-transparent">
                 <TableHead>Date</TableHead>
                 <TableHead>Report Subject</TableHead>
@@ -2105,7 +1929,7 @@ function EmployeeMyReports() {
                         <Pencil className="h-3.5 w-3.5 text-gray-500" />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteTarget(report)}>
-                        <Trash2 className="h-3.5 w-3.5 text-gray-500 hover:text-[#D94B2B]" />
+                        <Trash2 className="h-3.5 w-3.5 text-gray-500 hover:text-[#c47b32]" />
                       </Button>
                     </div>
                   </TableCell>
@@ -2116,7 +1940,7 @@ function EmployeeMyReports() {
         </div>
       )}
 
-      <button className="text-sm font-medium text-[#0B1F6D] hover:text-[#1e3a8a] transition-colors">
+      <button className="text-sm font-medium text-[#123c36] hover:text-[#1d5249] transition-colors">
         View Full Report History
       </button>
 
@@ -2193,7 +2017,7 @@ function EmployeeMyReports() {
                 comments: editComments.trim() || undefined,
               })}
               disabled={updateMutation.isPending || !editText.trim()}
-              className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg"
+              className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg"
             >
               {updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Save Changes
@@ -2216,7 +2040,7 @@ function EmployeeMyReports() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              className="bg-[#D94B2B] hover:bg-[#c4411f] text-white rounded-lg"
+              className="bg-[#c47b32] hover:bg-[#b2761b] text-white rounded-lg"
             >
               {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Delete
@@ -2359,7 +2183,7 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
           </Button>
           <Button
             onClick={() => setAddOpen(true)}
-            className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg text-xs font-medium gap-1.5"
+            className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg text-xs font-medium gap-1.5"
           >
             <Plus className="h-3.5 w-3.5" />
             Create Employee
@@ -2369,26 +2193,26 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="ufmi-card p-4">
+        <div className="product-card p-4">
           <p className="text-xs text-gray-500">Total Employees</p>
           <p className="text-xl font-bold text-gray-900 mt-1">{employees.length}</p>
         </div>
-        <div className="ufmi-card p-4">
+        <div className="product-card p-4">
           <p className="text-xs text-gray-500">Active Roles</p>
           <p className="text-xl font-bold text-green-600 mt-1">{activeCount}</p>
         </div>
-        <div className="ufmi-card p-4">
+        <div className="product-card p-4">
           <p className="text-xs text-gray-500">Suspended</p>
           <p className="text-xl font-bold text-amber-600 mt-1">{suspendedCount}</p>
         </div>
-        <div className="ufmi-card p-4">
+        <div className="product-card p-4">
           <p className="text-xs text-gray-500">Archived</p>
           <p className="text-xl font-bold text-gray-400 mt-1">{archivedCount}</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="ufmi-card p-4">
+      <div className="product-card p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -2415,22 +2239,22 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
 
       {/* Table */}
       {isLoading ? (
-        <div className="ufmi-card p-4 space-y-3">
+        <div className="product-card p-4 space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full rounded-lg" />
           ))}
         </div>
       ) : employees.length === 0 ? (
-        <div className="ufmi-card border-dashed flex flex-col items-center py-16">
+        <div className="product-card border-dashed flex flex-col items-center py-16">
           <Users className="h-12 w-12 text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">No employees found</p>
           <p className="text-gray-400 text-sm mt-1">Try adjusting your filters or add a new employee</p>
         </div>
       ) : (
-        <div className="ufmi-card overflow-hidden">
+        <div className="product-card overflow-hidden">
           <ScrollArea className="h-[60vh] min-h-[300px]">
             <Table>
-              <TableHeader className="ufmi-table-header bg-gray-50/80">
+              <TableHeader className="product-table-header bg-gray-50/80">
                 <TableRow className="border-b border-gray-100 hover:bg-transparent">
                   <TableHead>Employee ID</TableHead>
                   <TableHead>Name</TableHead>
@@ -2448,8 +2272,8 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-[#0B1F6D]/5 flex items-center justify-center shrink-0">
-                          <span className="text-[10px] font-bold text-[#0B1F6D] uppercase">{emp.username.charAt(0)}</span>
+                        <div className="w-7 h-7 rounded-full bg-[#123c36]/5 flex items-center justify-center shrink-0">
+                          <span className="text-[10px] font-bold text-[#123c36] uppercase">{emp.username.charAt(0)}</span>
                         </div>
                         <span className="text-sm font-medium text-gray-900">{emp.username}</span>
                       </div>
@@ -2465,7 +2289,7 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
                           <Pencil className="h-3.5 w-3.5 text-gray-500" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteTarget(emp)}>
-                          <Trash2 className="h-3.5 w-3.5 text-gray-500 hover:text-[#D94B2B]" />
+                          <Trash2 className="h-3.5 w-3.5 text-gray-500 hover:text-[#c47b32]" />
                         </Button>
                       </div>
                     </TableCell>
@@ -2541,7 +2365,7 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
             <Button
               onClick={() => addMutation.mutate(addForm)}
               disabled={addMutation.isPending || !addForm.username || !addForm.password || !addForm.employeeId || !addForm.position}
-              className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg"
+              className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg"
             >
               {addMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
               Create Employee
@@ -2629,7 +2453,7 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
             <Button
               onClick={() => editTarget && editMutation.mutate({ id: editTarget.id, body: editForm })}
               disabled={editMutation.isPending}
-              className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg"
+              className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg"
             >
               {editMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pencil className="mr-2 h-4 w-4" />}
               Save Changes
@@ -2651,7 +2475,7 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
-              className="bg-[#D94B2B] hover:bg-[#c4411f] text-white rounded-lg"
+              className="bg-[#c47b32] hover:bg-[#b2761b] text-white rounded-lg"
             >
               {deleteMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Delete
@@ -2720,7 +2544,7 @@ function AdminReports() {
       </div>
 
       {/* Filters */}
-      <div className="ufmi-card p-4">
+      <div className="product-card p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Month nav */}
           <div className="flex items-center gap-2 border rounded-lg px-3 py-1.5 bg-white border-gray-200">
@@ -2778,22 +2602,22 @@ function AdminReports() {
 
       {/* Table */}
       {isLoading ? (
-        <div className="ufmi-card p-4 space-y-3">
+        <div className="product-card p-4 space-y-3">
           {Array.from({ length: 8 }).map((_, i) => (
             <Skeleton key={i} className="h-12 w-full rounded-lg" />
           ))}
         </div>
       ) : reports.length === 0 ? (
-        <div className="ufmi-card border-dashed flex flex-col items-center py-16">
+        <div className="product-card border-dashed flex flex-col items-center py-16">
           <FileText className="h-12 w-12 text-gray-300 mb-3" />
           <p className="text-gray-500 font-medium">No reports found</p>
           <p className="text-gray-400 text-sm mt-1">Try adjusting your filters</p>
         </div>
       ) : (
-        <div className="ufmi-card overflow-hidden">
+        <div className="product-card overflow-hidden">
           <ScrollArea className="h-[60vh] min-h-[300px]">
             <Table>
-              <TableHeader className="ufmi-table-header bg-gray-50/80">
+              <TableHeader className="product-table-header bg-gray-50/80">
                 <TableRow className="border-b border-gray-100 hover:bg-transparent">
                   <TableHead>Date</TableHead>
                   <TableHead>Employee</TableHead>
@@ -2917,7 +2741,7 @@ function AdminExport() {
         <p className="text-sm text-gray-500 mt-0.5">Download monthly reports as Excel file</p>
       </div>
 
-      <div className="ufmi-card p-6 max-w-lg">
+      <div className="product-card p-6 max-w-lg">
         <div className="space-y-6">
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">Select Month</Label>
@@ -2932,10 +2756,10 @@ function AdminExport() {
             </div>
           </div>
 
-          <div className="rounded-xl bg-[#0B1F6D]/3 border border-[#0B1F6D]/10 p-5 space-y-2">
+          <div className="rounded-xl bg-[#123c36]/3 border border-[#123c36]/10 p-5 space-y-2">
             <div className="flex items-center gap-2">
-              <FileText className="h-4 w-4 text-[#0B1F6D]" />
-              <p className="text-sm font-semibold text-[#0B1F6D]">Export Summary</p>
+              <FileText className="h-4 w-4 text-[#123c36]" />
+              <p className="text-sm font-semibold text-[#123c36]">Export Summary</p>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">
               This will download an Excel file containing all daily reports for <strong>{format(monthDate, 'MMMM yyyy')}</strong>.
@@ -2946,7 +2770,7 @@ function AdminExport() {
           <Button
             onClick={handleExport}
             disabled={exporting}
-            className="w-full bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium h-11"
+            className="w-full bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg font-medium h-11"
           >
             {exporting ? (
               <>
@@ -3075,9 +2899,9 @@ function EmployeeMonthlyReports() {
       </div>
 
       {/* Generate New Report */}
-      <div className="ufmi-card p-6 max-w-2xl">
+      <div className="product-card p-6 max-w-2xl">
         <div className="flex items-center gap-2 mb-5">
-          <BarChart3 className="h-5 w-5 text-[#0B1F6D]" />
+          <BarChart3 className="h-5 w-5 text-[#123c36]" />
           <h2 className="text-base font-semibold text-gray-900">Generate New Report</h2>
         </div>
         <div className="space-y-4">
@@ -3093,7 +2917,7 @@ function EmployeeMonthlyReports() {
               </Button>
             </div>
           </div>
-          <div className="rounded-xl bg-[#0B1F6D]/5 border border-[#0B1F6D]/10 p-4">
+          <div className="rounded-xl bg-[#123c36]/5 border border-[#123c36]/10 p-4">
             <p className="text-xs text-gray-500 leading-relaxed">
               This will analyze all your daily reports for <strong>{format(genMonthDate, 'MMMM yyyy')}</strong>,
               categorize activities, calculate statistics, and produce a professional monthly report.
@@ -3103,7 +2927,7 @@ function EmployeeMonthlyReports() {
           <Button
             onClick={handleGenerate}
             disabled={generating}
-            className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium"
+            className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg font-medium"
           >
             {generating ? (
               <>
@@ -3121,7 +2945,7 @@ function EmployeeMonthlyReports() {
       </div>
 
       {/* Existing Reports */}
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <h2 className="text-base font-semibold text-gray-900 mb-4">Generated Reports</h2>
         {isLoading ? (
           <div className="space-y-3">
@@ -3141,8 +2965,8 @@ function EmployeeMonthlyReports() {
               return (
                 <div key={report.id} className="flex items-center justify-between gap-4 p-4 rounded-lg border border-gray-100 hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-[#0B1F6D]/10 flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-[#0B1F6D]" />
+                    <div className="w-10 h-10 rounded-lg bg-[#123c36]/10 flex items-center justify-center">
+                      <FileText className="h-5 w-5 text-[#123c36]" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">{format(reportMonthDate, 'MMMM yyyy')}</p>
@@ -3158,7 +2982,7 @@ function EmployeeMonthlyReports() {
                       <Download className="h-3.5 w-3.5" />
                       Export
                     </Button>
-                    <Button variant="ghost" size="sm" className="rounded-lg text-xs gap-1.5 text-gray-500 hover:text-[#0B1F6D]" onClick={() => setRegenerateConfirm(report.month)} title="Regenerate this report">
+                    <Button variant="ghost" size="sm" className="rounded-lg text-xs gap-1.5 text-gray-500 hover:text-[#123c36]" onClick={() => setRegenerateConfirm(report.month)} title="Regenerate this report">
                       <RefreshCw className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -3180,7 +3004,7 @@ function EmployeeMonthlyReports() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (regenerateConfirm) regenerateMutation.mutate(regenerateConfirm) }} className="bg-[#0B1F6D] hover:bg-[#1e3a8a]">
+            <AlertDialogAction onClick={() => { if (regenerateConfirm) regenerateMutation.mutate(regenerateConfirm) }} className="bg-[#123c36] hover:bg-[#1d5249]">
               {regenerateMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Regenerating...</> : 'Regenerate'}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -3216,7 +3040,7 @@ function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-[#0B1F6D]" />
+            <BarChart3 className="h-5 w-5 text-[#123c36]" />
             Monthly Report — {report.employeeInfo?.reportingMonthLabel || 'N/A'}
           </DialogTitle>
           <DialogDescription>
@@ -3251,9 +3075,9 @@ function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
 
           {/* Submission Statistics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 rounded-lg bg-[#0B1F6D]/5 border border-[#0B1F6D]/10">
+            <div className="p-3 rounded-lg bg-[#123c36]/5 border border-[#123c36]/10">
               <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">Submission Rate</p>
-              <p className="text-xl font-bold text-[#0B1F6D]">{safeNum(stats.submissionRate)}%</p>
+              <p className="text-xl font-bold text-[#123c36]">{safeNum(stats.submissionRate)}%</p>
               <p className="text-[10px] text-gray-400">{safeNum(stats.totalReportsSubmitted)}/{safeNum(stats.expectedReports)} days</p>
             </div>
             <div className="p-3 rounded-lg bg-green-50 border border-green-100">
@@ -3295,14 +3119,14 @@ function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
 
           {/* Executive Summary */}
           {report.summary && (
-          <div className="p-4 rounded-xl bg-[#0B1F6D]/5 border border-[#0B1F6D]/10">
-            <h3 className="text-sm font-semibold text-[#0B1F6D] mb-2 flex items-center gap-2">
+          <div className="p-4 rounded-xl bg-[#123c36]/5 border border-[#123c36]/10">
+            <h3 className="text-sm font-semibold text-[#123c36] mb-2 flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Executive Summary
             </h3>
             <p className="text-sm text-gray-600 leading-relaxed">{report.summary}</p>
             {report.dominantFocus && (
-              <p className="text-xs text-[#0B1F6D] mt-2 font-medium">Dominant Focus: {report.dominantFocus}</p>
+              <p className="text-xs text-[#123c36] mt-2 font-medium">Dominant Focus: {report.dominantFocus}</p>
             )}
           </div>
           )}
@@ -3314,7 +3138,7 @@ function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
               <ol className="space-y-1.5">
                 {safeArr(report.keyWorkAreas).map((area: unknown, i: number) => (
                   <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
-                    <span className="text-[#0B1F6D] font-bold">{i + 1}.</span>
+                    <span className="text-[#123c36] font-bold">{i + 1}.</span>
                     {String(area)}
                   </li>
                 ))}
@@ -3336,7 +3160,7 @@ function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
                       <span className="text-xs text-gray-400">{String(c.count ?? 0)} activities ({String(c.percentage ?? 0)}%)</span>
                     </div>
                     <div className="w-full bg-blue-100 rounded-full h-2">
-                      <div className="h-2 rounded-full bg-[#0B1F6D] transition-all" style={{ width: `${Math.min(Number(c.percentage) || 0, 100)}%` }} />
+                      <div className="h-2 rounded-full bg-[#123c36] transition-all" style={{ width: `${Math.min(Number(c.percentage) || 0, 100)}%` }} />
                     </div>
                   </div>
                   )
@@ -3396,7 +3220,7 @@ function ReportViewerDialog({ report, open, onOpenChange, onExport }: {
 
           {/* Export */}
           <div className="flex justify-end pt-2 border-t border-gray-100">
-            <Button onClick={() => report.id && onExport(report.id)} className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium gap-2">
+            <Button onClick={() => report.id && onExport(report.id)} className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg font-medium gap-2">
               <Download className="h-4 w-4" />
               Export to Excel
             </Button>
@@ -3578,9 +3402,9 @@ function AdminMonthlyReports() {
       </div>
 
       {/* Generate Report Card */}
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <div className="flex items-center gap-2 mb-5">
-          <BarChart3 className="h-5 w-5 text-[#0B1F6D]" />
+          <BarChart3 className="h-5 w-5 text-[#123c36]" />
           <h2 className="text-base font-semibold text-gray-900">Generate Report</h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
@@ -3612,7 +3436,7 @@ function AdminMonthlyReports() {
             </div>
           </div>
           <div className="flex items-end">
-            <Button onClick={handleGenerate} disabled={generating || !selectedUserId} className="w-full bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium h-10">
+            <Button onClick={handleGenerate} disabled={generating || !selectedUserId} className="w-full bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg font-medium h-10">
               {generating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generating...</> : <><BarChart3 className="mr-2 h-4 w-4" />Generate Report</>}
             </Button>
           </div>
@@ -3621,9 +3445,9 @@ function AdminMonthlyReports() {
       </div>
 
       {/* Bulk Generation Card */}
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <div className="flex items-center gap-2 mb-4">
-          <UsersRound className="h-5 w-5 text-[#0B1F6D]" />
+          <UsersRound className="h-5 w-5 text-[#123c36]" />
           <h2 className="text-base font-semibold text-gray-900">Bulk Generation</h2>
         </div>
         <p className="text-sm text-gray-500 mb-4">Generate monthly reports for all employees or only those missing reports.</p>
@@ -3644,8 +3468,8 @@ function AdminMonthlyReports() {
           </div>
         </div>
         {bulkGenerating && (
-          <div className="mt-4 flex items-center gap-3 p-3 rounded-lg bg-[#0B1F6D]/5 border border-[#0B1F6D]/10">
-            <Loader2 className="h-4 w-4 animate-spin text-[#0B1F6D]" />
+          <div className="mt-4 flex items-center gap-3 p-3 rounded-lg bg-[#123c36]/5 border border-[#123c36]/10">
+            <Loader2 className="h-4 w-4 animate-spin text-[#123c36]" />
             <p className="text-sm text-gray-600">Generating reports in progress...</p>
           </div>
         )}
@@ -3675,7 +3499,7 @@ function AdminMonthlyReports() {
       </div>
 
       {/* Generated Reports */}
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <h2 className="text-base font-semibold text-gray-900">Generated Reports ({total})</h2>
           <div className="flex items-center gap-2 flex-wrap">
@@ -3730,7 +3554,7 @@ function AdminMonthlyReports() {
                           <div className="flex items-center justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleViewReport(r.id)}><Eye className="h-3.5 w-3.5 text-gray-500" /></Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleExport(r.id)}><Download className="h-3.5 w-3.5 text-gray-500" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteConfirmId(r.id)}><Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-[#D94B2B]" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteConfirmId(r.id)}><Trash2 className="h-3.5 w-3.5 text-gray-400 hover:text-[#c47b32]" /></Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -3776,7 +3600,7 @@ function AdminMonthlyReports() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (deleteConfirmId) handleDeleteReport(deleteConfirmId) }} className="bg-[#D94B2B] hover:bg-[#c43d20]">
+            <AlertDialogAction onClick={() => { if (deleteConfirmId) handleDeleteReport(deleteConfirmId) }} className="bg-[#b9433f] hover:bg-[#9c3532]">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -3843,9 +3667,9 @@ function SettingsView() {
       </div>
 
       {/* Account Information */}
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <div className="flex items-center gap-2 mb-5">
-          <CircleUser className="h-5 w-5 text-[#0B1F6D]" />
+          <CircleUser className="h-5 w-5 text-[#123c36]" />
           <h2 className="text-base font-semibold text-gray-900">Account Information</h2>
         </div>
         <div className="space-y-4">
@@ -3856,7 +3680,7 @@ function SettingsView() {
             </div>
             <div>
               <p className="text-xs text-gray-400 mb-1">Role</p>
-              <Badge className={user?.role === 'admin' ? 'bg-[#0B1F6D]/10 text-[#0B1F6D] rounded-full px-2.5 text-xs font-medium' : 'bg-green-50 text-green-700 rounded-full px-2.5 text-xs font-medium'}>
+              <Badge className={user?.role === 'admin' ? 'bg-[#123c36]/10 text-[#123c36] rounded-full px-2.5 text-xs font-medium' : 'bg-green-50 text-green-700 rounded-full px-2.5 text-xs font-medium'}>
                 {user?.role === 'admin' ? 'Administrator' : 'Employee'}
               </Badge>
             </div>
@@ -3875,9 +3699,9 @@ function SettingsView() {
       </div>
 
       {/* Change Password */}
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <div className="flex items-center gap-2 mb-5">
-          <Shield className="h-5 w-5 text-[#0B1F6D]" />
+          <Shield className="h-5 w-5 text-[#123c36]" />
           <h2 className="text-base font-semibold text-gray-900">Change Password</h2>
         </div>
         <form onSubmit={handleChangePassword} className="space-y-4">
@@ -3944,7 +3768,7 @@ function SettingsView() {
           <Button
             type="submit"
             disabled={changeLoading}
-            className="bg-[#0B1F6D] hover:bg-[#1e3a8a] text-white rounded-lg font-medium"
+            className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg font-medium"
           >
             {changeLoading ? (
               <>
@@ -3959,9 +3783,9 @@ function SettingsView() {
       </div>
 
       {/* Display Preferences */}
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <div className="flex items-center gap-2 mb-5">
-          <Globe className="h-5 w-5 text-[#0B1F6D]" />
+          <Globe className="h-5 w-5 text-[#123c36]" />
           <h2 className="text-base font-semibold text-gray-900">Display Preferences</h2>
         </div>
         <div className="space-y-4">
@@ -3983,15 +3807,15 @@ function SettingsView() {
       </div>
 
       {/* Logout */}
-      <div className="ufmi-card p-6">
+      <div className="product-card p-6">
         <div className="flex items-center gap-2 mb-5">
-          <LogOut className="h-5 w-5 text-[#D94B2B]" />
+          <LogOut className="h-5 w-5 text-[#c47b32]" />
           <h2 className="text-base font-semibold text-gray-900">Sign Out</h2>
         </div>
         <p className="text-sm text-gray-500 mb-4">Sign out of your account on this device.</p>
         <Button
           variant="outline"
-          className="border-[#D94B2B]/20 text-[#D94B2B] hover:bg-[#D94B2B]/5 rounded-lg"
+          className="border-[#c47b32]/20 text-[#c47b32] hover:bg-[#c47b32]/5 rounded-lg"
           onClick={() => logout()}
         >
           <LogOut className="mr-2 h-4 w-4" />
@@ -4007,6 +3831,7 @@ function SettingsView() {
 // =====================================================================
 
 export default function Home() {
+  const router = useRouter()
   const { isAuthenticated, isAdmin, isInitialized, initialize, logout } = useAuthStore()
   const [employeeView, setEmployeeView] = useState<EmployeeView>('submit')
   const [adminView, setAdminView] = useState<AdminView>('overview')
@@ -4018,6 +3843,12 @@ export default function Home() {
   useEffect(() => {
     initialize()
   }, [initialize])
+
+  // Unauthenticated visitors are sent to the commercial NIWMS login.
+  // /app is the authenticated workspace only — it must never render a login screen.
+  useEffect(() => {
+    if (isInitialized && !isAuthenticated) router.replace('/login')
+  }, [isInitialized, isAuthenticated, router])
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' })
@@ -4068,25 +3899,27 @@ export default function Home() {
   // Loading state
   if (!isInitialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0B1F6D' }}>
+      <div className="flex min-h-screen items-center justify-center bg-[#102f2b]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl overflow-hidden animate-pulse">
-            <Image src="/logo.png" alt="Natural Intellects logo" width={48} height={48} className="w-full h-full object-contain" />
+          <div className="h-12 w-12 animate-pulse overflow-hidden rounded-2xl">
+            <Image src="/logo.png" alt="Natural Intellects logo" width={48} height={48} className="h-full w-full object-contain" />
           </div>
-          <p className="text-sm text-blue-200/50">Loading...</p>
+          <p className="text-sm text-[#d5e3df]/60">Loading your workspace…</p>
         </div>
       </div>
     )
   }
 
-  // Login page
-  if (!isAuthenticated) {
+  if (isInitialized && !isAuthenticated) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <LoginPage onHelpOpen={() => setHelpOpen(true)} />
-        <HelpCenterDialog open={helpOpen} onOpenChange={setHelpOpen} />
-        <Toaster position="top-right" richColors theme="light" />
-      </QueryClientProvider>
+      <div className="flex min-h-screen items-center justify-center bg-[#102f2b]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-12 w-12 animate-pulse overflow-hidden rounded-2xl">
+            <Image src="/logo.png" alt="Natural Intellects logo" width={48} height={48} className="h-full w-full object-contain" />
+          </div>
+          <p className="text-sm text-[#d5e3df]/60">Taking you to sign in…</p>
+        </div>
+      </div>
     )
   }
 
@@ -4163,8 +3996,8 @@ export default function Home() {
           {/* Footer */}
           <footer className="mt-auto border-t border-gray-200/80 bg-white px-4 lg:px-6 py-3">
             <div className="max-w-7xl mx-auto flex items-center justify-between">
-              <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Operations intelligence for growing organizations. All rights reserved.</p>
-              <p className="text-xs text-gray-400 hidden sm:block">Operations intelligence for growing organizations Portal</p>
+              <p className="text-xs text-gray-400">&copy; {new Date().getFullYear()} Natural Intellects Ltd. All rights reserved.</p>
+              <p className="text-xs text-gray-400 hidden sm:block">NIWMS · Natural Intellects Workforce Management System</p>
             </div>
           </footer>
         </div>

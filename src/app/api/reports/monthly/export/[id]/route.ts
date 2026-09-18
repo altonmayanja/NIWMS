@@ -42,7 +42,7 @@ export async function GET(
     }
 
     const wb = new ExcelJS.Workbook()
-    wb.creator = 'UFMI Report Intelligence Engine v2.0'
+    wb.creator = 'NIWMS Report Intelligence Engine v2.0'
     wb.created = new Date()
 
     // ══════════════════════════════════════════════════════════════
@@ -52,7 +52,7 @@ export async function GET(
     s1.columns = [{ header: 'Field', key: 'f', width: 30 }, { header: 'Details', key: 'd', width: 65 }]
 
     const summaryRows = [
-      { f: 'UFMI MONTHLY REPORT', d: '' },
+      { f: 'NIWMS MONTHLY REPORT', d: '' },
       { f: '────────────────────────', d: '' },
       { f: '', d: '' },
       { f: 'EMPLOYEE INFORMATION', d: '' },
@@ -216,7 +216,7 @@ export async function GET(
     s5.addRow({ section: 'Signature', content: '' })
     s5.addRow({ section: '', content: '' })
     s5.addRow({ section: 'Report Metadata', content: `Generated: ${report.createdAt.toISOString()}` })
-    s5.addRow({ section: '', content: `Engine: UFMI Report Intelligence Engine v${d.engineVersion || '2.0.0'}` })
+    s5.addRow({ section: '', content: `Engine: NIWMS Report Intelligence Engine v${d.engineVersion || '2.0.0'}` })
     s5.addRow({ section: '', content: `This report was generated automatically from daily activity submissions.` })
 
     styleHeader(s5.getRow(1), BRANDED)
@@ -226,7 +226,7 @@ export async function GET(
     // ──── EXPORT ────
     const buffer = await wb.xlsx.writeBuffer()
 
-    const filename = `UFMI-Monthly-Report-${info.employeeId}-${info.reportingMonth}.xlsx`
+    const filename = `NIWMS-Monthly-Report-${info.employeeId}-${info.reportingMonth}.xlsx`
 
     return new NextResponse(new Uint8Array(buffer), {
       headers: {

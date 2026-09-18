@@ -14,7 +14,7 @@ async function authenticateAdmin(request: NextRequest) {
   return payload
 }
 
-// Predefined UFMI positions
+// Official predefined positions
 const POSITIONS = [
   'Chief Executive Officer',
   'Operations and Administrative Officer',
@@ -26,7 +26,14 @@ const POSITIONS = [
   'Licensing Officer',
 ]
 
-// GET /api/admin/employees - List all employees
+function toPositionCode(position: string) {
+  return position.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+}
+
+// GET /api/admin/employees - List all employees of the organization.
+// Employees live in the canonical reporting model (reporting employee +
+// SaaS membership); the legacy User link is kept as a fallback so
+// pre-existing organizations keep working unchanged.
 export async function GET(request: NextRequest) {
   try {
     const payload = await authenticateAdmin(request)
@@ -36,28 +43,82 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
-    const search = searchParams.get('search')
+    const search = searchParams.get('search')?.trim().toLowerCase() || ''
 
-    const where: Record<string, unknown> = { organizationId: context.organizationId }
-
-    if (status) {
-      where.status = status
-    }
-    if (search) {
-      where.OR = [
-        { username: { contains: search } },
-        { profile: { employeeId: { contains: search } } },
-        { profile: { position: { contains: search } } },
-      ]
-    }
-
-    const employees = await db.user.findMany({
-      where,
-      include: { profile: true, _count: { select: { reports: true } } },
+    const canonicalRows = await db.reportingEmployee.findMany({
+      where: { organizationId: context.organizationId, ...(status ? { status } : {}) },
+      include: { membership: true, position: true, department: true, _count: { select: { dailyReports: true } } },
       orderBy: { createdAt: 'desc' },
     })
+    const canonicalUserIds = canonicalRows
+      .map((row) => row.membership?.userId)
+      .filter((id): id is string => Boolean(id))
 
-    return NextResponse.json({ employees, positions: POSITIONS })
+    const canonicalUsers = canonicalUserIds.length
+      ? await db.user.findMany({
+          where: { id: { in: canonicalUserIds } },
+          include: { profile: true, _count: { select: { reports: true } } },
+        })
+      : []
+    const usersById = new Map(canonicalUsers.map((user) => [user.id, user]))
+
+    // Legacy fallback: users attached through the legacy organization link
+    // (or legacy OrganizationMember rows) that have no canonical employee row.
+    const legacyUsers = await db.user.findMany({
+      where: {
+        OR: [
+          { organizationId: context.organizationId },
+          { memberships: { some: { organizationId: context.organizationId, status: 'active' } } },
+        ],
+        ...(status ? { status } : {}),
+      },
+      include: { profile: true, _count: { select: { reports: true } } },
+    })
+    const canonicalUserSet = new Set(canonicalUserIds)
+
+    const employees = [
+      ...canonicalRows
+        .map((row) => {
+          const user = row.membership?.userId ? usersById.get(row.membership.userId) : undefined
+          const username = user?.username ?? row.displayName
+          return {
+            id: user?.id ?? row.membershipId,
+            username,
+            role: user?.role ?? 'employee',
+            status: user?.status ?? row.status,
+            createdAt: (user?.createdAt ?? row.createdAt).toISOString(),
+            profile: {
+              employeeId: row.employeeCode,
+              position: row.position?.name ?? user?.profile?.position ?? null,
+            },
+            _count: { reports: row._count.dailyReports + (user?._count.reports ?? 0) },
+          }
+        })
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      ...legacyUsers
+        .filter((user) => !canonicalUserSet.has(user.id))
+        .map((user) => ({
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          status: user.status,
+          createdAt: user.createdAt.toISOString(),
+          profile: {
+            employeeId: user.profile?.employeeId ?? null,
+            position: user.profile?.position ?? null,
+          },
+          _count: { reports: user._count.reports },
+        })),
+    ]
+
+    const filtered = search
+      ? employees.filter((employee) =>
+          [employee.username, employee.profile.employeeId ?? '', employee.profile.position ?? '']
+            .some((value) => value.toLowerCase().includes(search))
+        )
+      : employees
+
+    return NextResponse.json({ employees: filtered, positions: POSITIONS })
   } catch (error) {
     console.error('Get employees error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -89,7 +150,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate position - must be one of the predefined UFMI positions
+    // Validate position - must be one of the predefined official positions
     if (!POSITIONS.includes(position)) {
       return NextResponse.json(
         { error: `Invalid position. Must be one of: ${POSITIONS.join(', ')}` },
@@ -97,8 +158,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check username uniqueness
-    const existingUser = await db.user.findFirst({ where: { username, organizationId: context.organizationId } })
+    // Usernames are globally unique in the schema; check up front for a clean 409.
+    const existingUser = await db.user.findUnique({ where: { username } })
     if (existingUser) {
       return NextResponse.json(
         { error: 'Username already exists' },
@@ -106,9 +167,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check employeeId uniqueness
-    const existingProfile = await db.employeeProfile.findFirst({ where: { employeeId, user: { organizationId: context.organizationId } } })
-    if (existingProfile) {
+    // Employee ID is unique within the organization (canonical constraint).
+    const existingCanonicalCode = await db.reportingEmployee.findFirst({
+      where: { organizationId: context.organizationId, employeeCode: employeeId },
+    })
+    const existingProfile = !existingCanonicalCode
+      ? await db.employeeProfile.findFirst({ where: { employeeId, user: { organizationId: context.organizationId } } })
+      : null
+    if (existingCanonicalCode || existingProfile) {
       return NextResponse.json(
         { error: 'Employee ID already exists' },
         { status: 409 }
@@ -118,12 +184,14 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await hashPassword(password)
 
-    // Create user with profile
+    // Create the account. Organization association is derived server-side from
+    // the canonical membership, never from a client-controlled field. The
+    // legacy User.organizationId link is reserved for legacy organizations and
+    // must not receive SaaS organization ids (separate tables/FKs).
     const user = await db.user.create({
       data: {
         username,
         passwordHash,
-        organizationId: context.organizationId,
         role: 'employee',
         status: 'active',
         profile: {
@@ -132,28 +200,22 @@ export async function POST(request: NextRequest) {
             position,
           },
         },
-        memberships: {
-          create: { organizationId: context.organizationId, role: 'member', status: 'active' },
-        },
       },
       include: { profile: true },
     })
 
-    const canonicalMembership = await db.saaSOrganizationMembership.upsert({
-      where: { organizationId_userId: { organizationId: context.organizationId, userId: user.id } },
-      update: { role: 'member', status: 'active' },
-      create: {
+    const canonicalMembership = await db.saaSOrganizationMembership.create({
+      data: {
         organizationId: context.organizationId,
         userId: user.id,
         role: 'member',
         status: 'active',
       },
     })
-    const positionCode = position.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
     const canonicalPosition = await db.reportingPosition.upsert({
-      where: { organizationId_code: { organizationId: context.organizationId, code: positionCode } },
+      where: { organizationId_code: { organizationId: context.organizationId, code: toPositionCode(position) } },
       update: { name: position },
-      create: { organizationId: context.organizationId, name: position, code: positionCode },
+      create: { organizationId: context.organizationId, name: position, code: toPositionCode(position) },
     })
     const canonicalEmployee = await db.reportingEmployee.create({
       data: {

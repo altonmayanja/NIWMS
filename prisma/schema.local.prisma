@@ -4,15 +4,18 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:/home/z/my-project/db/custom.db"
+  url      = "file:./../db/custom.db"
 }
 
 model User {
   id           String   @id @default(cuid())
+  organizationId String?
+  memberships   OrganizationMember[]
+  organization  Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   username     String   @unique
   passwordHash String
-  role         String   @default("employee")
-  status       String   @default("active")
+  role         String   @default("employee") // "admin" | "employee"
+  status       String   @default("active")   // "active" | "suspended" | "archived"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -27,35 +30,44 @@ model User {
 model MonthlyReport {
   id           String   @id @default(cuid())
   userId       String
-  month        String
-  reportData   String
+  month        String // YYYY-MM format
+  reportData   String   // JSON - the full generated report
+
+  // Computed summary fields for quick display
   totalReports     Int
   totalActivities  Int
   submissionRate   Float
-  categoryBreakdown String
-  summary          String
-  achievements     String
-  status       String   @default("draft")
-  generatedBy  String?
-  approvedBy   String?
+  categoryBreakdown String // JSON
+  summary          String // Professional summary text
+  achievements     String // JSON array of achievement strings
+
+  status       String   @default("draft") // "draft" | "generated" | "approved" | "archived"
+  generatedBy  String?  // userId of admin who generated, or "self" for employee
+  approvedBy   String?  // userId of manager who approved
   approvedAt   DateTime?
-  originalCreatedAt    DateTime?
-  lastRegeneratedAt    DateTime?
-  regeneratedBy        String?
-  regenerationCount    Int        @default(0)
+
+  // Regeneration tracking
+  originalCreatedAt    DateTime?  // When the first version was created
+  lastRegeneratedAt    DateTime?  // When it was last regenerated
+  regeneratedBy        String?    // userId who last regenerated
+  regenerationCount    Int        @default(0) // How many times regenerated
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, month])
+  @@unique([userId, month]) // one monthly report per user per month
+  @@index([userId])
+  @@index([month])
+  @@index([status])
 }
 
 model EmployeeProfile {
   id         String   @id @default(cuid())
   userId     String   @unique
-  employeeId String   @unique
-  position   String
+  employeeId String   @unique // unique company ID (e.g., EMP-001)
+  position   String   // predefined position
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -65,25 +77,25 @@ model EmployeeProfile {
 model DailyReport {
   id           String   @id @default(cuid())
   userId       String
-  date         String
-  activityText String
-  location     String?
-  timeIn       String?
-  timeOut      String?
-  comments     String?
+  date         String // YYYY-MM-DD format
+  activityText String  
+  location     String?  // Where the activity was performed
+  timeIn       String?  // HH:MM format - clock-in time
+  timeOut      String?  // HH:MM format - clock-out time
+  comments     String?  // Additional comments or remarks
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, date])
+  @@unique([userId, date]) // one report per user per day
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  action    String
-  details   String?
+  action    String // "login", "report_created", "employee_created", "export", etc.
+  details   String?  // JSON string with additional details
   ipAddress String?
   createdAt DateTime @default(now())
 
@@ -92,25 +104,413 @@ model AuditLog {
 
 model Notification {
   id        String   @id @default(cuid())
-  userId    String?
+  userId    String?  // null = broadcast to all employees
   title     String
-  message   String
-  type      String   @default("info")
+  message   String  
+  type      String   @default("info") // "info" | "reminder" | "warning" | "success" | "announcement"
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+}
+
+model Organization {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique
+  status          String   @default("trial")
+  organizationType String  @default("STANDARD") // STANDARD | LEGACY
+  timezone        String   @default("Africa/Kampala")
+  trialStartedAt  DateTime?
+  trialEndsAt     DateTime?
+  graceStartedAt  DateTime?
+  graceEndsAt     DateTime?
+  suspendedAt     DateTime?
+  retentionEndsAt DateTime?
+  archivedAt      DateTime?
+  deletionScheduledAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users           User[]
+  members         OrganizationMember[]
+  settings        OrganizationSettings?
+  subscription    Subscription?
+  auditEvents     AuditEvent[]
+
+  @@index([status])
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String   @default("member")
+  status         String   @default("active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model OrganizationSettings {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  reportDeadline String   @default("16:00")
+  reminderEnabled Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Plan {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  name            String
+  monthlyPrice    Int      @default(0)
+  maxEmployees    Int?
+  entitlements    String  
+  active          Boolean  @default(true)
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  organizationId       String   @unique
+  planId               String
+  status               String   @default("trialing")
+  provider             String?
+  providerCustomerId   String?
+  providerSubscriptionId String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         Plan         @relation(fields: [planId], references: [id])
+
+  @@index([status])
+  @@index([providerSubscriptionId])
+}
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  action         String
+  entityType     String?
+  entityId       String?
+  metadata       String? 
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, action])
+}
+
+model SaaSOrganization {
+  id                   String                    @id @default(uuid()) @map("id")
+  name                 String
+  slug                 String                    @unique
+  status               String                   @default("trial")
+  trialStartedAt       DateTime                 @default(now()) @map("trial_started_at")
+  trialEndsAt          DateTime                 @default(now()) @map("trial_ends_at")
+  graceEndsAt          DateTime?                @map("grace_ends_at")
+  deletionRequestedAt  DateTime?                @map("deletion_requested_at")
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+  memberships          SaaSOrganizationMembership[]
+  subscriptions        SaaSSubscription[]
+  billingEvents        SaaSBillingEvent[]
+  auditLogs            SaaSAuditLog[]
+  usageEvents          SaaSUsageEvent[]
+  deletionRequests     SaaSDeletionRequest[]
+  reportingDepartments ReportingDepartment[]
+  reportingPositions   ReportingPosition[]
+  reportingEmployees   ReportingEmployee[]
+  reportingDailyReports ReportingDailyReport[]
+  reportingMonthlyReports ReportingMonthlyReport[]
+  reportingNotifications ReportingNotification[]
+
+  @@map("organizations")
+}
+
+model SaaSOrganizationMembership {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  userId         String           @map("user_id")
+  role           String           @default("member")
+  status         String           @default("active")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  organization   SaaSOrganization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  reportingEmployee ReportingEmployee?
+
+  @@unique([organizationId, userId])
+  @@index([userId, status])
+  @@map("organization_memberships")
+}
+
+model SaaSPlan {
+  id                 String            @id @default(uuid())
+  code               String            @unique
+  name               String
+  monthlyPriceCents  Int               @default(0) @map("monthly_price_cents")
+  annualPriceCents   Int               @default(0) @map("annual_price_cents")
+  maxMembers         Int?              @map("max_members")
+  maxReportsPerMonth Int?              @map("max_reports_per_month")
+  features           Json?
+  isActive           Boolean           @default(true) @map("is_active")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  subscriptions      SaaSSubscription[]
+
+  @@map("plans")
+}
+
+model SaaSSubscription {
+  id                    String          @id @default(uuid())
+  organizationId        String          @unique @map("organization_id")
+  planId                String          @map("plan_id")
+  status                String          @default("trialing")
+  billingInterval       String          @default("monthly") @map("billing_interval")
+  provider              String          @default("manual")
+  providerCustomerId    String?         @map("provider_customer_id")
+  providerSubscriptionId String?        @map("provider_subscription_id")
+  currentPeriodStart    DateTime?       @map("current_period_start")
+  currentPeriodEnd      DateTime?       @map("current_period_end")
+  trialEndsAt           DateTime?       @map("trial_ends_at")
+  canceledAt            DateTime?       @map("canceled_at")
+  createdAt             DateTime        @default(now()) @map("created_at")
+  updatedAt             DateTime        @updatedAt @map("updated_at")
+  organization          SaaSOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan                  SaaSPlan        @relation(fields: [planId], references: [id])
+
+  @@index([status, currentPeriodEnd])
+  @@map("subscriptions")
+}
+
+model SaaSBillingEvent {
+  id                String           @id @default(uuid())
+  provider          String
+  providerEventId   String           @map("provider_event_id")
+  organizationId    String?          @map("organization_id")
+  eventType         String           @map("event_type")
+  payload           Json?
+  processedAt       DateTime?        @map("processed_at")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  organization      SaaSOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([organizationId, createdAt])
+  @@map("billing_events")
+}
+
+model SaaSAuditLog {
+  id             String           @id @default(uuid())
+  organizationId String?          @map("organization_id")
+  actorUserId    String?          @map("actor_user_id")
+  action         String
+  resourceType   String           @map("resource_type")
+  resourceId     String?          @map("resource_id")
+  metadata       Json?
+  ipAddress      String?          @map("ip_address")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  organization   SaaSOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@map("audit_logs")
+}
+
+model SaaSUsageEvent {
+  id             String           @id @default(uuid())
+  organizationId String           @map("organization_id")
+  userId         String?          @map("user_id")
+  eventType      String           @map("event_type")
+  quantity       Int              @default(1)
+  occurredAt     DateTime         @default(now()) @map("occurred_at")
+  metadata       Json?
+  organization   SaaSOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, occurredAt])
+  @@map("usage_events")
+}
+
+model SaaSDeletionRequest {
+  id                  String           @id @default(uuid())
+  organizationId      String           @map("organization_id")
+  requestedByUserId   String           @map("requested_by_user_id")
+  status              String           @default("pending")
+  scheduledFor        DateTime         @map("scheduled_for")
+  cancelledAt         DateTime?        @map("cancelled_at")
+  completedAt         DateTime?        @map("completed_at")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  organization        SaaSOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@map("deletion_requests")
 }
 
 model PasswordResetRequest {
   id        String   @id @default(cuid())
   userId    String?
-  username  String
-  status    String   @default("pending")
-  message   String?
-  resolvedBy String?
+  username  String // username of the requester (may not have account)
+  status    String   @default("pending") // "pending" | "resolved" | "rejected"
+  message   String?  // optional message from the requester
+  resolvedBy String? // userId of admin who resolved it
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model ReportingDepartment {
+  id             String                         @id @default(uuid())
+  organizationId String                         @map("organization_id")
+  name           String
+  code           String
+  createdAt      DateTime                       @default(now()) @map("created_at")
+  updatedAt      DateTime                       @updatedAt @map("updated_at")
+  organization   SaaSOrganization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employees      ReportingEmployee[]
+  positions      ReportingPosition[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, name])
+  @@map("reporting_departments")
+}
+
+model ReportingPosition {
+  id             String                         @id @default(uuid())
+  organizationId String                         @map("organization_id")
+  departmentId   String?                        @map("department_id")
+  name           String
+  code           String
+  createdAt      DateTime                       @default(now()) @map("created_at")
+  updatedAt      DateTime                       @updatedAt @map("updated_at")
+  organization   SaaSOrganization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department     ReportingDepartment?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employees      ReportingEmployee[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, name])
+  @@map("reporting_positions")
+}
+
+model ReportingEmployee {
+  id             String                         @id @default(uuid())
+  organizationId String                         @map("organization_id")
+  membershipId   String                         @unique @map("membership_id")
+  employeeCode   String                         @map("employee_code")
+  displayName    String                         @map("display_name")
+  departmentId   String?                        @map("department_id")
+  positionId     String?                        @map("position_id")
+  status         String                         @default("active")
+  createdAt      DateTime                       @default(now()) @map("created_at")
+  updatedAt      DateTime                       @updatedAt @map("updated_at")
+  organization   SaaSOrganization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  membership     SaaSOrganizationMembership     @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  department     ReportingDepartment?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position       ReportingPosition?             @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  dailyReports   ReportingDailyReport[]
+  monthlyReports ReportingMonthlyReport[]
+  notifications  ReportingNotification[]
+
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId, status])
+  @@map("reporting_employees")
+}
+
+model ReportingDailyReport {
+  id           String             @id @default(uuid())
+  organizationId String           @map("organization_id")
+  employeeId   String             @map("employee_id")
+  reportDate   String             @map("report_date")
+  activityText String             @map("activity_text")
+  location     String?
+  timeIn       String?            @map("time_in")
+  timeOut      String?            @map("time_out")
+  comments     String?           
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  organization SaaSOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     ReportingEmployee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, reportDate])
+  @@index([organizationId, reportDate])
+  @@map("reporting_daily_reports")
+}
+
+model ReportingMonthlyReport {
+  id                 String             @id @default(uuid())
+  organizationId     String             @map("organization_id")
+  employeeId         String             @map("employee_id")
+  month              String
+  reportData         Json               @map("report_data")
+  totalReports       Int                @map("total_reports")
+  totalActivities    Int                @map("total_activities")
+  submissionRate     Float              @map("submission_rate")
+  categoryBreakdown  Json               @map("category_breakdown")
+  summary            String            
+  achievements       Json
+  status             String             @default("draft")
+  generatedByUserId  String?            @map("generated_by_user_id")
+  approvedByUserId   String?            @map("approved_by_user_id")
+  approvedAt         DateTime?          @map("approved_at")
+  originalCreatedAt  DateTime?          @map("original_created_at")
+  lastRegeneratedAt  DateTime?          @map("last_regenerated_at")
+  regeneratedByUserId String?           @map("regenerated_by_user_id")
+  regenerationCount  Int                @default(0) @map("regeneration_count")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+  organization       SaaSOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee           ReportingEmployee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  comments           ReportingReportComment[]
+
+  @@unique([employeeId, month])
+  @@index([organizationId, month])
+  @@index([organizationId, status])
+  @@map("reporting_monthly_reports")
+}
+
+model ReportingReportComment {
+  id         String                 @id @default(uuid())
+  reportId   String                 @map("report_id")
+  authorUserId String               @map("author_user_id")
+  body       String                
+  createdAt  DateTime               @default(now()) @map("created_at")
+  updatedAt  DateTime               @updatedAt @map("updated_at")
+  report     ReportingMonthlyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, createdAt])
+  @@map("reporting_report_comments")
+}
+
+model ReportingNotification {
+  id           String            @id @default(uuid())
+  organizationId String          @map("organization_id")
+  employeeId   String?           @map("employee_id")
+  title        String
+  message      String           
+  type         String            @default("info")
+  read         Boolean           @default(false)
+  createdAt    DateTime          @default(now()) @map("created_at")
+  organization SaaSOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     ReportingEmployee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([employeeId, read])
+  @@map("reporting_notifications")
 }

@@ -3,29 +3,34 @@
 import { useState, useCallback, useMemo } from 'react'
 import { translations, type Locale } from './translations'
 
+// Natural Intellects language preference. The historic 'ufmi_language' key is
+// still read so returning users keep their saved language, but new writes use
+// the product key.
+const LANGUAGE_STORAGE_KEY = 'ni_language'
+const LEGACY_LANGUAGE_STORAGE_KEY = 'ufmi_language'
+
+function readSavedLocale(): Locale | null {
+  if (typeof window === 'undefined') return null
+  const saved =
+    localStorage.getItem(LANGUAGE_STORAGE_KEY) ??
+    localStorage.getItem(LEGACY_LANGUAGE_STORAGE_KEY)
+  if (saved && translations[saved as Locale]) return saved as Locale
+  return null
+}
+
 export function useTranslation() {
   const [locale, setLocaleState] = useState<Locale>('en')
 
   // Initialize locale from localStorage (only once, during first render)
   const mounted = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ufmi_language') as Locale | null
-      if (saved && translations[saved]) {
-        return saved
-      }
-    }
-    return 'en' as Locale
+    return readSavedLocale() ?? ('en' as Locale)
   }, [])
 
   // Sync the initial locale from localStorage on mount
   const [initialized, setInitialized] = useState(false)
   useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('ufmi_language') as Locale | null
-      if (saved && translations[saved]) {
-        setLocaleState(saved)
-      }
-    }
+    const saved = readSavedLocale()
+    if (saved) setLocaleState(saved)
     return undefined
   })
 
@@ -42,7 +47,7 @@ export function useTranslation() {
   const setLocale = useCallback((newLocale: Locale) => {
     if (translations[newLocale]) {
       setLocaleState(newLocale)
-      localStorage.setItem('ufmi_language', newLocale)
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, newLocale)
     }
   }, [])
 

@@ -1,5 +1,5 @@
 /**
- * UFMI Report Intelligence Engine — Report Generator
+ * NIWMS Report Intelligence Engine — Report Generator
  *
  * Generates professional monthly reports using templates and real data only.
  *

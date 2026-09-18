@@ -3,6 +3,48 @@ import { db } from '@/lib/db'
 import { verifyPassword } from '@/lib/password'
 import { signToken, sessionCookie } from '@/lib/auth'
 
+// PostgreSQL supports SQL-side case-insensitive matching. The SQLite client
+// used for local development does not, so fall back to a bounded lookup with
+// application-side comparison there. Production behavior is unchanged.
+const SUPPORTS_SQL_INSENSITIVE = !/^file:/.test(process.env.DATABASE_URL ?? '')
+
+function nameMatchesOrganizationInput(name: string, input: string) {
+  return name.trim().toLowerCase() === input.trim().toLowerCase()
+}
+
+async function findLegacyOrganization(input: string, requestedOrganizationId: string | undefined) {
+  if (requestedOrganizationId) {
+    return db.organization.findUnique({ where: { id: requestedOrganizationId } })
+  }
+  const bySlug = await db.organization.findUnique({ where: { slug: input.toLowerCase() } })
+  if (bySlug) return bySlug
+  if (SUPPORTS_SQL_INSENSITIVE) {
+    // `mode` exists only on the PostgreSQL client; cast keeps the shared source compilable.
+    const nameFilter = { equals: input, mode: 'insensitive' } as unknown as { equals: string }
+    return db.organization.findFirst({ where: { name: nameFilter } })
+  }
+  const candidates = await db.organization.findMany({
+    take: 200,
+    select: { id: true, name: true, slug: true, status: true, organizationType: true },
+  })
+  return candidates.find((row) => nameMatchesOrganizationInput(row.name, input)) ?? null
+}
+
+async function findCanonicalOrganization(input: string, requestedOrganizationId: string | undefined) {
+  if (requestedOrganizationId) {
+    return db.saaSOrganization.findUnique({ where: { id: requestedOrganizationId } })
+  }
+  const bySlug = await db.saaSOrganization.findUnique({ where: { slug: input.toLowerCase() } })
+  if (bySlug) return bySlug
+  if (SUPPORTS_SQL_INSENSITIVE) {
+    // `mode` exists only on the PostgreSQL client; cast keeps the shared source compilable.
+    const nameFilter = { equals: input, mode: 'insensitive' } as unknown as { equals: string }
+    return db.saaSOrganization.findFirst({ where: { name: nameFilter } })
+  }
+  const candidates = await db.saaSOrganization.findMany({ take: 200, select: { id: true, name: true, slug: true, status: true } })
+  return candidates.find((row) => nameMatchesOrganizationInput(row.name, input)) ?? null
+}
+
 // POST /api/auth/login
 export async function POST(request: NextRequest) {
   try {
@@ -35,29 +77,16 @@ export async function POST(request: NextRequest) {
 
     const legacyOrganization = isPlatformAdmin
       ? null
-      : requestedOrganizationId
-        ? await db.organization.findUnique({ where: { id: requestedOrganizationId } })
-        : await db.organization.findFirst({
-            where: {
-              OR: [
-                { slug: organizationInput.toLowerCase() },
-                { name: { equals: organizationInput, mode: 'insensitive' } },
-              ],
-            },
-          })
-    const canonicalMembership = !isPlatformAdmin
+      : await findLegacyOrganization(organizationInput, requestedOrganizationId)
+    const canonicalOrganization = !isPlatformAdmin
+      ? await findCanonicalOrganization(organizationInput, requestedOrganizationId)
+      : null
+    const canonicalMembership = canonicalOrganization
       ? await db.saaSOrganizationMembership.findFirst({
-          where: {
-            userId: user.id,
-            status: 'active',
-            organization: requestedOrganizationId
-              ? { id: requestedOrganizationId }
-              : { OR: [{ slug: organizationInput.toLowerCase() }, { name: { equals: organizationInput, mode: 'insensitive' } }] },
-          },
-          include: { organization: true },
+          where: { userId: user.id, organizationId: canonicalOrganization.id, status: 'active' },
         })
       : null
-    const organization = canonicalMembership?.organization ?? legacyOrganization
+    const organization = canonicalOrganization ?? legacyOrganization
 
     if (!isPlatformAdmin && (!organization || !['active', 'trial', 'grace'].includes(organization.status))) {
       return NextResponse.json({ error: 'Invalid organization credentials.' }, { status: 401 })
