@@ -178,16 +178,18 @@
 }
 .marketing-shell h1 { text-wrap: balance; }
 .marketing-shell section { position: relative; }
-.marketing-shell section::after {
-  content: '';
-  position: absolute;
-  width: 220px;
-  height: 220px;
-  right: -120px;
-  top: 12%;
-  border-radius: 999px;
-  border: 1px solid rgba(196, 123, 50, .12);
-  pointer-events: none;
+.marketing-shell section::after { display: none; }
+.marketing-shell #features > div > div:first-child,
+.marketing-shell #pricing > div:first-child,
+.marketing-shell #how-it-works > div:first-child { max-width: 680px; margin-inline: auto; text-align: center; }
+.marketing-shell #features > div > div:first-child p,
+.marketing-shell #pricing > div:first-child p { text-align: center; }
+.marketing-shell #how-it-works > div:first-child { text-align: left; }
+.marketing-shell #how-it-works > div:first-child + div { min-height: 280px; }
+@media (max-width: 639px) {
+  .marketing-shell .hero-preview { transform: none; }
+  .marketing-shell .hero-preview > div { min-width: 0; }
+  .marketing-shell #how-it-works > div:first-child { text-align: left; }
 }
 
 .marketing-shell .reveal {
