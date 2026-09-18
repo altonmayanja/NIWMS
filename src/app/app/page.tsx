@@ -1757,8 +1757,17 @@ function EmployeeSubmitReport() {
     },
   })
 
+  const user = useAuthStore((s) => s.user)
+  // Server rejects report submission while a temporary password is in place;
+  // mirror that here so users see why the form is disabled.
+  const passwordBlocked = user?.mustChangePassword === true
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    if (passwordBlocked) {
+      toast.error('Set a new password in Settings before submitting reports')
+      return
+    }
     if (!activityText.trim()) {
       toast.error('Please describe your activities')
       return
@@ -1772,8 +1781,6 @@ function EmployeeSubmitReport() {
       comments: comments.trim() || undefined,
     })
   }
-
-  const user = useAuthStore((s) => s.user)
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
@@ -1863,6 +1870,25 @@ function EmployeeSubmitReport() {
       {/* Report form */}
       <div id="report-form" className="product-card p-6 max-w-3xl">
         <h3 className="text-base font-semibold text-gray-900 mb-5">Report Details</h3>
+        {passwordBlocked && (
+          <div className="mb-5 flex flex-col gap-3 rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center" role="alert">
+            <div className="flex min-w-0 flex-1 items-start gap-2.5">
+              <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Reporting is paused until you set a new password</p>
+                <p className="text-xs text-amber-800/80">This account still uses a temporary password. Reports can be submitted once you choose a new one.</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => window.dispatchEvent(new CustomEvent('admin-navigate', { detail: 'settings' }))}
+              className="h-8 shrink-0 rounded-lg bg-[#c47b32] px-3 text-xs font-medium text-white hover:bg-[#a96a2b]"
+            >
+              <KeyRound className="mr-1.5 h-3.5 w-3.5" />
+              Open Settings
+            </Button>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">Reporting Date</Label>
@@ -1998,7 +2024,8 @@ function EmployeeSubmitReport() {
           <div className="flex items-center gap-3 pt-2">
             <Button
               type="submit"
-              disabled={submitMutation.isPending || !!existingReport}
+              disabled={submitMutation.isPending || !!existingReport || passwordBlocked}
+              title={passwordBlocked ? 'Set a new password in Settings first' : undefined}
               className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg font-medium"
             >
               {submitMutation.isPending ? (
@@ -4408,14 +4435,19 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
 
-  // Listen for admin navigation events from child components
+  // Listen for in-app navigation events from child components (role-agnostic:
+  // admin children dispatch 'admin-navigate' too, e.g. the password-required
+  // notice on the employee submit form navigates to Settings).
   useEffect(() => {
     const navHandler = (e: Event) => {
       const view = (e as CustomEvent).detail
-      if (isAdmin && view) {
+      if (!view) return
+      if (isAdmin) {
         setAdminView(view as AdminView)
-        window.scrollTo({ top: 0, behavior: 'instant' })
+      } else {
+        setEmployeeView(view as EmployeeView)
       }
+      window.scrollTo({ top: 0, behavior: 'instant' })
     }
     window.addEventListener('admin-navigate', navHandler)
     return () => window.removeEventListener('admin-navigate', navHandler)

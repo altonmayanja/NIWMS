@@ -70,6 +70,20 @@ export async function POST(request: NextRequest) {
     const employee = await getEmployee(payload.userId, tenant.organizationId)
     if (!employee) return NextResponse.json({ error: 'Employee profile not found' }, { status: 404 })
 
+    // Accounts still signing in with a provisional/temporary password must set
+    // a new one before their reports are accepted (server-side enforcement —
+    // the workspace banner and submit-form notice are only UX affordances).
+    const account = await db.user.findUnique({
+      where: { id: payload.userId },
+      select: { mustChangePassword: true },
+    })
+    if (account?.mustChangePassword) {
+      return NextResponse.json(
+        { error: 'Set a new password in Settings before submitting reports', code: 'PASSWORD_CHANGE_REQUIRED' },
+        { status: 403 },
+      )
+    }
+
     const body = await request.json()
     const { date, activityText, location, timeIn, timeOut, comments } = body
     if (!validDate(date) || typeof activityText !== 'string' || !activityText.trim()) {

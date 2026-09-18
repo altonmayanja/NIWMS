@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto'
 import { db } from '@/lib/db'
 import { hashPassword } from '@/lib/password'
 import { authenticateRequest, forbiddenResponse, unauthorizedResponse } from '@/lib/auth'
+import { queueEmail, trialCredentialsEmail } from '@/lib/email'
 
 // Platform control-plane review of marketing trial requests.
 //
@@ -154,11 +155,25 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return { organization, adminUsername: adminUser.username }
   })
 
+  // Deliver the credentials by email (outbox provider records the delivery;
+  // SMTP sends it for real when configured). Never blocks provisioning.
+  const emailResult = await queueEmail(
+    trialCredentialsEmail({
+      to: trialRequest.contactEmail,
+      organizationName: result.organization.name,
+      adminUsername: result.adminUsername,
+      temporaryPassword,
+      slug: result.organization.slug,
+      trialEndsAt: result.organization.trialEndsAt,
+    }),
+  )
+
   return NextResponse.json({
     organization: result.organization,
     adminUsername: result.adminUsername,
     temporaryPassword,
     loginUrl: '/login',
+    email: emailResult ? { status: emailResult.status, provider: emailResult.provider } : null,
     message:
       'Trial workspace provisioned. Share the temporary password with the customer — it will not be shown again.',
   })

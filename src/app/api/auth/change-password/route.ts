@@ -4,6 +4,7 @@ import { verifyToken, getTokenFromRequest } from '@/lib/auth'
 import bcrypt from 'bcryptjs'
 import { hashPassword } from '@/lib/password'
 import { checkRateLimit, getRateLimitErrorMessage } from '@/lib/rate-limiter'
+import { queueEmail, passwordChangedEmail } from '@/lib/email'
 
 // Password policy: at least 8 characters with at least one letter and one number.
 // This matches the strength meter enforced in the workspace Settings UI.
@@ -77,6 +78,11 @@ export async function POST(request: NextRequest) {
         passwordChangedAt,
       },
     })
+
+    // Security alert: confirm the credential change to email-like usernames.
+    if (user.username.includes('@')) {
+      await queueEmail(passwordChangedEmail({ to: user.username, when: passwordChangedAt }))
+    }
 
     return NextResponse.json({
       message: 'Password changed successfully',

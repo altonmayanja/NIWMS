@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { DAILY_REMINDER_TITLE, getLocalReminderWindow, shouldCreateReminder } from '@/lib/reminder-policy'
+import { queueEmail, dailyDigestEmail, trialWarningEmail } from '@/lib/email'
 
 const DIGEST_TITLE = 'Daily reporting digest'
 const TRIAL_WARNING_TITLE = 'Trial ending soon'
@@ -54,9 +55,15 @@ export async function POST(request: Request) {
 
     const [saasAdmins, legacyAdmins] = await Promise.all([
       db.saaSOrganizationMembership.findMany({ where: { organizationId: organization.id, status: 'active', role: { in: ['owner', 'admin'] } }, select: { userId: true } }),
-      db.user.findMany({ where: { organizationId: organization.id, role: 'admin', status: 'active' }, select: { id: true } }),
+      db.user.findMany({ where: { organizationId: organization.id, role: 'admin', status: 'active' }, select: { id: true, username: true } }),
     ])
     const adminUserIds = [...new Set([...saasAdmins.map((m) => m.userId), ...legacyAdmins.map((u) => u.id)])]
+    // Membership rows carry no user relation (legacy schema split) — resolve
+    // usernames in one extra query so digest emails can be mirrored to admins.
+    const adminUsers = adminUserIds.length
+      ? await db.user.findMany({ where: { id: { in: adminUserIds } }, select: { id: true, username: true } })
+      : []
+    const usernameByAdminId = new Map(adminUsers.map((u) => [u.id, u.username]))
     for (const adminUserId of adminUserIds) {
       const exists = await db.notification.findFirst({
         where: { userId: adminUserId, title: DIGEST_TITLE, createdAt: { gte: new Date(`${dateKey}T00:00:00.000Z`) } },
@@ -67,6 +74,11 @@ export async function POST(request: Request) {
         data: { userId: adminUserId, title: DIGEST_TITLE, message: digestMessage, type: 'info' },
       })
       digests += 1
+      // Mirror the digest into the email outbox for admin addresses.
+      const adminUsername = usernameByAdminId.get(adminUserId)
+      if (adminUsername && adminUsername.includes('@')) {
+        await queueEmail(dailyDigestEmail({ to: adminUsername, organizationName: organization.name, message: digestMessage }))
+      }
     }
   }
 
@@ -82,20 +94,34 @@ export async function POST(request: Request) {
     const daysLeft = Math.max(0, Math.ceil((organization.trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000)))
     const warningMessage = `Your Natural Intellects trial for ${organization.name} ends ${daysLeft === 0 ? 'today' : `in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`} (${organization.trialEndsAt.toLocaleDateString()}). Contact us to choose a plan and keep your workspace.`
     const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0)
-    const adminMemberships = await db.saaSOrganizationMembership.findMany({
+    const adminMemberIds = await db.saaSOrganizationMembership.findMany({
       where: { organizationId: organization.id, status: 'active', role: { in: ['owner', 'admin'] } },
       select: { userId: true },
     })
-    for (const membership of adminMemberships) {
+    const warningAdminUsers = adminMemberIds.length
+      ? await db.user.findMany({ where: { id: { in: adminMemberIds.map((m) => m.userId) } }, select: { id: true, username: true } })
+      : []
+    for (const adminUser of warningAdminUsers) {
       const exists = await db.notification.findFirst({
-        where: { userId: membership.userId, title: TRIAL_WARNING_TITLE, createdAt: { gte: todayStart } },
+        where: { userId: adminUser.id, title: TRIAL_WARNING_TITLE, createdAt: { gte: todayStart } },
         select: { id: true },
       })
       if (exists) continue
       await db.notification.create({
-        data: { userId: membership.userId, title: TRIAL_WARNING_TITLE, message: warningMessage, type: 'warning' },
+        data: { userId: adminUser.id, title: TRIAL_WARNING_TITLE, message: warningMessage, type: 'warning' },
       })
       trialWarnings += 1
+      // Mirror the warning into the email outbox for admin addresses.
+      if (adminUser.username.includes('@')) {
+        await queueEmail(
+          trialWarningEmail({
+            to: adminUser.username,
+            organizationName: organization.name,
+            daysLeft,
+            trialEndsAt: organization.trialEndsAt,
+          }),
+        )
+      }
     }
   }
   return NextResponse.json({ created, digests, trialWarnings })

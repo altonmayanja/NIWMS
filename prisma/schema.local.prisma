@@ -120,6 +120,27 @@ model Notification {
   @@index([createdAt])
 }
 
+// Persisted email delivery record. With EMAIL_PROVIDER=outbox (sandbox default)
+// the row IS the delivery; with EMAIL_PROVIDER=smtp the row records the real
+// SMTP attempt (sent/failed + error). Visible to platform staff in the
+// Control Center outbox.
+model EmailMessage {
+  id             String    @id @default(cuid())
+  organizationId String?
+  toEmail        String
+  subject        String
+  body           String
+  category       String    // "trial_credentials" | "trial_warning" | "daily_digest" | "password_changed" | "system"
+  status         String    @default("sent") // "sent" | "failed"
+  provider       String    @default("outbox") // "outbox" | "smtp"
+  error          String?
+  createdAt      DateTime  @default(now())
+  sentAt         DateTime?
+
+  @@index([createdAt])
+  @@index([category])
+}
+
 model Organization {
   id              String   @id @default(cuid())
   name            String

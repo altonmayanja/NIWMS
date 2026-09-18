@@ -116,6 +116,10 @@ else
   echo "  SKIP  reset-request isolation probe (API error)"
 fi
 
+echo "== platform email outbox boundaries =="
+check "anon -> /api/platform/emails" 401 "$(status_of "$BASE_URL/api/platform/emails")"
+check "employee -> /api/platform/emails" 403 "$(status_of -b "$JAR_E" "$BASE_URL/api/platform/emails")"
+
 echo "== change-password boundaries =="
 check "anon -> /api/auth/change-password" 401 "$(status_of -X POST "$BASE_URL/api/auth/change-password" -H 'Content-Type: application/json' -d '{"oldPassword":"whatever","newPassword":"Whatever123"}')"
 # Policy runs before the current-password check, so a weak new password is

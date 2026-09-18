@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Building2, Users, FileText, CreditCard, ShieldAlert, ArrowLeft, RefreshCw, Search, CalendarClock, Inbox, UserPlus, KeyRound, Copy, Check, X, Loader2, Sparkles, Hourglass } from 'lucide-react'
+import { Building2, Users, FileText, CreditCard, ShieldAlert, ArrowLeft, RefreshCw, Search, CalendarClock, Inbox, UserPlus, KeyRound, Copy, Check, X, Loader2, Sparkles, Hourglass, Mail, ChevronDown, AlertCircle } from 'lucide-react'
 
 type Overview = { metrics: Record<string, number>; organizations: { id: string; name: string; slug: string; status: string; createdAt: string; trialEndsAt: string | null; subscription: { status: string; plan: { name: string } } | null; _count: { users: number } }[] }
 
@@ -23,7 +23,22 @@ type ProvisionResult = {
   organization: { id: string; name: string; slug: string; trialEndsAt: string }
   adminUsername: string
   temporaryPassword: string
+  email: { status: string; provider: string } | null
   message: string
+}
+
+type EmailRow = {
+  id: string
+  organizationId: string | null
+  toEmail: string
+  subject: string
+  body: string
+  category: string
+  status: string
+  provider: string
+  error: string | null
+  createdAt: string
+  sentAt: string | null
 }
 
 // NI product palette — dark control-plane variant (green-tinted, gold accents)
@@ -98,6 +113,20 @@ function RequestStatusChip({ status }: { status: TrialRequest['status'] }) {
   )
 }
 
+const EMAIL_CATEGORY_STYLES: Record<string, string> = {
+  trial_credentials: 'border-[#e9b44c]/40 bg-[#e9b44c]/10 text-[#e9b44c]',
+  trial_warning: 'border-[#e2705f]/40 bg-[#e2705f]/10 text-[#e2705f]',
+  daily_digest: 'border-[#7fc9a6]/40 bg-[#7fc9a6]/10 text-[#7fc9a6]',
+  password_changed: 'border-white/15 bg-white/5 text-[#d8e2dc]',
+  system: 'border-white/15 bg-white/5 text-[#a8b8b0]',
+}
+
+function EmailCategoryChip({ category }: { category: string }) {
+  const cls = EMAIL_CATEGORY_STYLES[category] ?? 'border-white/15 bg-white/5 text-[#a8b8b0]'
+  const label = category.replace(/_/g, ' ')
+  return <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${cls}`}>{label}</span>
+}
+
 function timeAgoLabel(iso: string): string {
   const then = new Date(iso).getTime()
   if (Number.isNaN(then)) return ''
@@ -122,12 +151,17 @@ export default function PlatformPage() {
   const [actingId, setActingId] = useState<string | null>(null)
   const [provisioned, setProvisioned] = useState<ProvisionResult | null>(null)
   const [passwordCopied, setPasswordCopied] = useState(false)
+  const [emails, setEmails] = useState<EmailRow[]>([])
+  const [emailsTotal, setEmailsTotal] = useState(0)
+  const [emailsFailed, setEmailsFailed] = useState(0)
+  const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [overviewResponse, requestsResponse] = await Promise.all([
+    const [overviewResponse, requestsResponse, emailsResponse] = await Promise.all([
       fetch('/api/platform/overview', { credentials: 'include' }),
       fetch('/api/platform/trial-requests', { credentials: 'include' }),
+      fetch('/api/platform/emails?limit=20', { credentials: 'include' }),
     ])
     if (!overviewResponse.ok) {
       setError(overviewResponse.status === 403 ? 'This area is restricted to Natural Intellects platform administrators.' : 'Sign in with a platform administrator account to continue.')
@@ -139,6 +173,12 @@ export default function PlatformPage() {
       const body = await requestsResponse.json() as { requests: TrialRequest[]; pendingCount: number }
       setTrialRequests(body.requests)
       setPendingRequests(body.pendingCount)
+    }
+    if (emailsResponse.ok) {
+      const body = await emailsResponse.json() as { emails: EmailRow[]; total: number; failedCount: number }
+      setEmails(body.emails)
+      setEmailsTotal(body.total)
+      setEmailsFailed(body.failedCount)
     }
     setError('')
     setLoading(false)
@@ -290,6 +330,13 @@ export default function PlatformPage() {
                 {passwordCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {passwordCopied ? 'Copied to clipboard' : 'Copy credentials for handover'}
               </button>
+              {provisioned.email && (
+                <p className={`mt-2 inline-flex items-center gap-1.5 text-xs ${provisioned.email.status === 'sent' ? 'text-[#7fc9a6]' : 'text-[#e9b44c]'}`}>
+                  {provisioned.email.status === 'sent'
+                    ? <><Mail className="h-3.5 w-3.5" /> Credentials emailed to {provisioned.adminUsername} via {provisioned.email.provider} — see the outbox below.</>
+                    : <><AlertCircle className="h-3.5 w-3.5" /> Email delivery failed — use “Copy credentials for handover” instead.</>}
+                </p>
+              )}
             </div>
           )}
 
@@ -335,6 +382,75 @@ export default function PlatformPage() {
             <div className="flex flex-col items-center gap-2 p-8 text-center">
               <Sparkles className={`h-6 w-6 ${T.faint}`} />
               <p className={`text-sm ${T.muted}`}>No trial requests yet. New requests from the marketing site appear here.</p>
+            </div>
+          )}
+        </section>
+
+        {/* Email outbox */}
+        <section className={`mt-8 overflow-hidden rounded-xl border ${T.surface}`}>
+          <div className={`flex flex-col gap-3 border-b ${T.border} px-5 py-4 sm:flex-row sm:items-center sm:justify-between`}>
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#7fc9a6]/10 text-[#7fc9a6]"><Mail className="h-4.5 w-4.5" /></span>
+              <div>
+                <h2 className="flex flex-wrap items-center gap-2 font-semibold">Email outbox
+                  <span className="inline-flex min-h-5 items-center rounded-full border border-white/15 bg-white/5 px-2 text-[11px] font-semibold tabular-nums text-[#a8b8b0]">{emailsTotal} total</span>
+                  {emailsFailed > 0 && (
+                    <span className="inline-flex min-h-5 items-center rounded-full border border-[#e2705f]/40 bg-[#e2705f]/10 px-2 text-[11px] font-semibold tabular-nums text-[#e2705f]">{emailsFailed} failed</span>
+                  )}
+                </h2>
+                <p className={`mt-1 text-sm ${T.muted}`}>Trial credentials, daily digests, and lifecycle warnings. Outbox mode records each delivery here; switch EMAIL_PROVIDER to smtp for real sends.</p>
+              </div>
+            </div>
+            <span className="hidden text-xs uppercase tracking-widest text-[#7f948a] sm:inline">Delivery log</span>
+          </div>
+
+          <ul className="divide-y divide-[#21362e]">
+            {emails.map((email) => {
+              const expanded = expandedEmailId === email.id
+              return (
+                <li key={email.id} className="transition-colors hover:bg-[#1b2e27]">
+                  <button
+                    onClick={() => setExpandedEmailId(expanded ? null : email.id)}
+                    aria-expanded={expanded}
+                    className="flex w-full flex-col gap-2 px-5 py-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e9b44c] lg:flex-row lg:items-center lg:justify-between"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <ChevronDown className={`h-4 w-4 shrink-0 text-[#7f948a] transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{email.subject}</p>
+                        <p className={`mt-0.5 truncate text-xs ${T.muted}`}>
+                          To <span className="font-mono">{email.toEmail}</span> · {timeAgoLabel(email.createdAt)} · via {email.provider}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 lg:pl-8">
+                      <EmailCategoryChip category={email.category} />
+                      <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${email.status === 'sent' ? 'border-[#7fc9a6]/30 bg-[#7fc9a6]/10 text-[#7fc9a6]' : 'border-[#e2705f]/40 bg-[#e2705f]/10 text-[#e2705f]'}`}>
+                        {email.status}
+                      </span>
+                    </div>
+                  </button>
+                  {expanded && (
+                    <div className="px-5 pb-5 lg:pl-14">
+                      <div className="rounded-lg border border-[#2a4237] bg-[#0f1a17]/70 p-4">
+                        <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-[#d8e2dc]">{email.body}</pre>
+                        {email.error && (
+                          <p className="mt-3 flex items-start gap-2 rounded-md border border-[#e2705f]/40 bg-[#e2705f]/10 px-3 py-2 text-xs text-[#e2705f]">
+                            <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            {email.error}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+          {emails.length === 0 && (
+            <div className="flex flex-col items-center gap-2 p-8 text-center">
+              <Mail className={`h-6 w-6 ${T.faint}`} />
+              <p className={`text-sm ${T.muted}`}>No emails yet. Approving a trial, daily digests, and trial warnings all land here.</p>
             </div>
           )}
         </section>
