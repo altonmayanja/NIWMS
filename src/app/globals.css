@@ -164,6 +164,15 @@
   box-shadow: 0 1px 2px rgba(16, 47, 43, 0.04), 0 8px 24px rgba(16, 47, 43, 0.035);
 }
 
+/* Stat tiles: quiet hover lift so dense dashboards still feel responsive. */
+.product-card-hover {
+  @apply transition-all duration-200;
+}
+.product-card-hover:hover {
+  box-shadow: 0 2px 4px rgba(16, 47, 43, 0.05), 0 12px 32px rgba(16, 47, 43, 0.09);
+  transform: translateY(-1px);
+}
+
 .product-card-dark {
   @apply bg-ni-primary-deep rounded-2xl;
 }

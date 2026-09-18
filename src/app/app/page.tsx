@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Image from 'next/image'
@@ -17,7 +17,7 @@ import {
   Lock, LayoutDashboard, ClipboardCheck, CircleUser,
   ChevronUp, TrendingUp, Settings, MessageSquare,
   Info, Globe, Phone, Mail, BookOpen, MonitorSmartphone, Save,
-  BarChart3, RefreshCw, UsersRound, Archive,
+  BarChart3, RefreshCw, UsersRound, Archive, Trophy, Flame,
 } from 'lucide-react'
 
 import { useAuthStore, type User } from '@/store/auth-store'
@@ -100,6 +100,7 @@ interface AdminStats {
   currentMonth: string
   today: string
   positionBreakdown: { position: string; count: number }[]
+  topReporters?: { username: string; position: string; count: number; lastDate: string }[]
   reportsTrend: { date: string; count: number }[]
   missingTodayReports: { id: string; username: string; profile?: { employeeId?: string; position?: string } }[]
   recentReports: DailyReport[]
@@ -267,8 +268,8 @@ function HelpCenterDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
             </h3>
             <div className="space-y-1.5 text-xs text-gray-500">
               <p><span className="font-medium text-gray-700">Version:</span> 2.1.0</p>
-              <p><span className="font-medium text-gray-700">Platform:</span> Natural Intellects Operations Portal</p>
-              <p><span className="font-medium text-gray-700">Last Updated:</span> June 2025</p>
+              <p><span className="font-medium text-gray-700">Platform:</span> Natural Intellects Workforce Platform</p>
+              <p><span className="font-medium text-gray-700">Developed by:</span> Natural Intellects Ltd</p>
             </div>
           </div>
         </div>
@@ -673,7 +674,21 @@ function TopHeader({
   const user = useAuthStore((s) => s.user)
   const [searchValue, setSearchValue] = useState('')
   const [notifOpen, setNotifOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const qc = useQueryClient()
+
+  // "/" focuses the search from anywhere (ignored while typing in a field)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return
+      const target = e.target as HTMLElement | null
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable || target.tagName === 'SELECT')) return
+      e.preventDefault()
+      searchInputRef.current?.focus()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
   const { t } = useTranslation()
 
   // Real notifications from API
@@ -741,11 +756,17 @@ function TopHeader({
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
+              ref={searchInputRef}
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
-              placeholder="Search employees, reports, or positions..."
-              className="h-10 pl-10 rounded-lg border-gray-200 bg-gray-50/50 text-sm focus:bg-white"
+              onKeyDown={(e) => { if (e.key === 'Escape') { setSearchValue(''); (e.target as HTMLInputElement).blur() } }}
+              placeholder={isAdmin ? 'Search employees, reports, or positions...' : 'Search my reports...'}
+              aria-label={isAdmin ? 'Search employees, reports, or positions' : 'Search my reports'}
+              className="h-10 pl-10 pr-9 rounded-lg border-gray-200 bg-gray-50/50 text-sm focus:bg-white"
             />
+            <kbd className="hidden sm:flex absolute right-2.5 top-1/2 -translate-y-1/2 items-center justify-center h-5 min-w-[20px] rounded border border-gray-200 bg-white text-[10px] font-semibold text-gray-400 pointer-events-none select-none">
+              /
+            </kbd>
           </div>
         </form>
 
@@ -1288,7 +1309,7 @@ function AdminOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0 }}
           >
-            <div className="product-card p-6">
+            <div className="product-card product-card-hover p-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Total Employees</p>
@@ -1309,7 +1330,7 @@ function AdminOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
           >
-            <div className="product-card p-6">
+            <div className="product-card product-card-hover p-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Active Employees</p>
@@ -1330,7 +1351,7 @@ function AdminOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <div className="product-card p-6">
+            <div className="product-card product-card-hover p-6">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm text-gray-500">Pending Reports</p>
@@ -1349,7 +1370,7 @@ function AdminOverview() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
           >
-          <div className="product-card-dark p-6">
+          <div className="product-card-dark product-card-hover p-6">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-blue-200/60">Compliance Score</p>
@@ -1366,7 +1387,7 @@ function AdminOverview() {
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {/* Position Breakdown */}
         <div className="product-card p-6">
           <div className="mb-5">
@@ -1406,8 +1427,75 @@ function AdminOverview() {
           )}
         </div>
 
-        {/* Missing Today's Reports */}
+        {/* Top Reporters (this month) */}
         <div className="product-card p-6">
+          <div className="mb-5 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-[#c47b32]" />
+                Top Reporters
+              </h2>
+              <p className="text-sm text-gray-500 mt-0.5">Most submissions in {format(parseISO(stats.currentMonth + '-01'), 'MMMM')}</p>
+            </div>
+            <Badge className="bg-[#e9f0ee] text-[#356247] border-[#d2ddda] rounded-full px-2.5 text-[10px] font-medium shrink-0">
+              {stats.monthReports} this month
+            </Badge>
+          </div>
+          {(stats.topReporters?.length ?? 0) > 0 ? (
+            <ScrollArea className="max-h-[240px] pr-2">
+              <div className="space-y-3.5">
+                {(() => {
+                  const reporters = stats.topReporters ?? []
+                  const maxCount = Math.max(...reporters.map((r) => r.count), 1)
+                  const rankStyles = [
+                    'bg-[#c47b32]/15 text-[#9a5d1f] ring-1 ring-[#c47b32]/30',
+                    'bg-[#123c36]/10 text-[#356247] ring-1 ring-[#123c36]/20',
+                    'bg-amber-50 text-amber-700 ring-1 ring-amber-200/80',
+                  ]
+                  return reporters.map((reporter, index) => (
+                    <div key={`${reporter.username}-${index}`} className="flex items-start gap-3">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold tabular-nums shrink-0 mt-0.5 ${rankStyles[index] ?? 'bg-gray-100 text-gray-500 ring-1 ring-gray-200/80'}`}>
+                        {index + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <span className="text-sm font-medium text-gray-700 truncate">{reporter.username}</span>
+                          <span className="text-xs text-gray-500 tabular-nums shrink-0 font-medium">
+                            {reporter.count} {reporter.count === 1 ? 'report' : 'reports'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-1.5 flex-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{ width: `${Math.max((reporter.count / maxCount) * 100, 6)}%`, background: index === 0 ? '#c47b32' : '#123c36' }}
+                            />
+                          </div>
+                          <span
+                            className="text-[10px] text-gray-400 whitespace-nowrap tabular-nums"
+                            title={`Last submitted ${format(parseISO(reporter.lastDate), 'EEE, MMM d')}`}
+                          >
+                            {format(parseISO(reporter.lastDate), 'MMM d')}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 mt-0.5 truncate">{reporter.position}</p>
+                      </div>
+                    </div>
+                  ))
+                })()}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="flex flex-col items-center py-8">
+              <Trophy className="h-10 w-10 text-gray-200 mb-2" />
+              <p className="text-sm text-gray-500 font-medium">No submissions this month</p>
+              <p className="text-xs text-gray-400 mt-0.5">Rankings appear once reports come in.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Missing Today's Reports */}
+        <div className="product-card p-6 lg:col-span-2 xl:col-span-1">
           <div className="mb-5 flex items-center justify-between">
             <div>
               <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
@@ -1583,6 +1671,38 @@ function EmployeeSubmitReport() {
   const existingReport = reports.find((r) => r.date === format(selectedDate, 'yyyy-MM-dd'))
   const hasTodayReport = reports.find((r) => r.date === format(today, 'yyyy-MM-dd'))
 
+  // Lifetime submissions power the "Your reporting month" strip (streak spans months)
+  const { data: allReports = [] } = useQuery<DailyReport[]>({
+    queryKey: ['my-reports-all'],
+    queryFn: () => apiGet<DailyReport[]>('/api/reports'),
+  })
+
+  const reportingStats = useMemo(() => {
+    const dates = new Set(allReports.map((r) => r.date))
+    const monthPrefix = format(today, 'yyyy-MM')
+    const monthCount = allReports.filter((r) => r.date.startsWith(monthPrefix)).length
+    const lastSubmission = allReports.length > 0
+      ? allReports.map((r) => r.date).reduce((a, b) => (a > b ? a : b))
+      : null
+    // Consecutive-day streak ending today (or yesterday when today is still open)
+    const dayKey = (d: Date) => format(d, 'yyyy-MM-dd')
+    let cursor: Date | null = null
+    if (dates.has(dayKey(today))) {
+      cursor = today
+    } else {
+      const yesterday = new Date(today)
+      yesterday.setDate(yesterday.getDate() - 1)
+      if (dates.has(dayKey(yesterday))) cursor = yesterday
+    }
+    let streak = 0
+    while (cursor && dates.has(dayKey(cursor))) {
+      streak += 1
+      cursor = new Date(cursor)
+      cursor.setDate(cursor.getDate() - 1)
+    }
+    return { monthCount, streak, lastSubmission }
+  }, [allReports, today])
+
   const submitMutation = useMutation({
     mutationFn: (body: { date: string; activityText: string; location?: string; timeIn?: string; timeOut?: string; comments?: string }) => apiPost('/api/reports', body),
     onSuccess: () => {
@@ -1594,6 +1714,7 @@ function EmployeeSubmitReport() {
       setTimeOut('')
       setComments('')
       queryClient.invalidateQueries({ queryKey: ['my-reports', monthStr] })
+      queryClient.invalidateQueries({ queryKey: ['my-reports-all'] })
     },
     onError: (err) => {
       if (err instanceof ApiError) {
@@ -1671,6 +1792,39 @@ function EmployeeSubmitReport() {
             <Send className="mr-2 h-4 w-4" />
             Submit Daily Report
           </Button>
+        </div>
+      </div>
+
+      {/* Your reporting month */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="product-card product-card-hover p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#123c36]/5 flex items-center justify-center shrink-0">
+            <ClipboardCheck className="h-5 w-5 text-[#123c36]" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xl font-bold text-gray-900 tabular-nums leading-none">{reportingStats.monthCount}</p>
+            <p className="text-xs text-gray-500 mt-1.5 truncate">Submitted in {format(today, 'MMMM')}</p>
+          </div>
+        </div>
+        <div className="product-card product-card-hover p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#c47b32]/10 flex items-center justify-center shrink-0">
+            <Flame className={`h-5 w-5 ${reportingStats.streak > 0 ? 'text-[#c47b32]' : 'text-gray-300'}`} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xl font-bold text-gray-900 tabular-nums leading-none">{reportingStats.streak}</p>
+            <p className="text-xs text-gray-500 mt-1.5 truncate">{reportingStats.streak === 1 ? 'Day' : 'Days'} in a row — keep it up</p>
+          </div>
+        </div>
+        <div className="product-card product-card-hover p-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+            <Clock className="h-5 w-5 text-green-600" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-gray-900 leading-none">
+              {reportingStats.lastSubmission ? format(parseISO(reportingStats.lastSubmission), 'MMM d, yyyy') : '—'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1.5 truncate">Last submission</p>
+          </div>
         </div>
       </div>
 
@@ -1866,9 +2020,10 @@ function EmployeeSubmitReport() {
 // EMPLOYEE: MY REPORTS
 // =====================================================================
 
-function EmployeeMyReports() {
+function EmployeeMyReports({ initialSearch }: { initialSearch?: string }) {
   const { t } = useTranslation()
   const [currentMonth, setCurrentMonth] = useState(new Date())
+  const [search, setSearch] = useState(initialSearch || '')
   const [editingReport, setEditingReport] = useState<DailyReport | null>(null)
   const [editText, setEditText] = useState('')
   const [editLocation, setEditLocation] = useState('')
@@ -1884,6 +2039,15 @@ function EmployeeMyReports() {
     queryKey: ['my-reports', monthStr],
     queryFn: () => apiGet<DailyReport[]>(`/api/reports?month=${monthStr}`),
   })
+
+  const filteredReports = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return reports
+    return reports.filter((report) =>
+      [report.activityText, report.location, report.comments]
+        .some((field) => (field ?? '').toLowerCase().includes(q))
+    )
+  }, [reports, search])
 
   const updateMutation = useMutation({
     mutationFn: ({ id, activityText, location, timeIn, timeOut, comments }: { id: string; activityText: string; location?: string; timeIn?: string; timeOut?: string; comments?: string }) =>
@@ -1930,17 +2094,39 @@ function EmployeeMyReports() {
         <p className="text-sm text-gray-500 mt-0.5">View and manage your daily reports</p>
       </div>
 
-      {/* Month navigation */}
-      <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={prevMonth} className="rounded-lg border-gray-200 h-8 w-8">
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <span className="text-sm font-semibold min-w-[160px] text-center">
-          {format(currentMonth, 'MMMM yyyy')}
-        </span>
-        <Button variant="outline" size="icon" onClick={nextMonth} className="rounded-lg border-gray-200 h-8 w-8">
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+      {/* Month navigation + search */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" onClick={prevMonth} className="rounded-lg border-gray-200 h-8 w-8">
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-semibold min-w-[160px] text-center">
+            {format(currentMonth, 'MMMM yyyy')}
+          </span>
+          <Button variant="outline" size="icon" onClick={nextMonth} className="rounded-lg border-gray-200 h-8 w-8">
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+        <div className="relative sm:ml-auto sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search this month's reports..."
+            aria-label="Search my reports"
+            className="h-9 pl-9 pr-8 rounded-lg border-gray-200 bg-gray-50/50 text-sm focus:bg-white"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -1949,12 +2135,23 @@ function EmployeeMyReports() {
             <Skeleton key={i} className="h-24 w-full rounded-2xl" />
           ))}
         </div>
-      ) : reports.length === 0 ? (
-        <div className="product-card border-dashed flex flex-col items-center justify-center py-16">
-          <FileText className="h-12 w-12 text-gray-300 mb-3" />
-          <p className="text-gray-500 font-medium">No reports for this month</p>
-          <p className="text-gray-400 text-sm mt-1">Submit your first report for the selected month</p>
-        </div>
+      ) : filteredReports.length === 0 ? (
+        search.trim() ? (
+          <div className="product-card border-dashed flex flex-col items-center justify-center py-16">
+            <Search className="h-12 w-12 text-gray-200 mb-3" />
+            <p className="text-gray-500 font-medium">No reports match “{search.trim()}”</p>
+            <p className="text-gray-400 text-sm mt-1">Try a different keyword or clear the search</p>
+            <Button variant="outline" size="sm" className="mt-4 rounded-lg border-gray-200 text-xs" onClick={() => setSearch('')}>
+              Clear search
+            </Button>
+          </div>
+        ) : (
+          <div className="product-card border-dashed flex flex-col items-center justify-center py-16">
+            <FileText className="h-12 w-12 text-gray-300 mb-3" />
+            <p className="text-gray-500 font-medium">No reports for this month</p>
+            <p className="text-gray-400 text-sm mt-1">Submit your first report for the selected month</p>
+          </div>
+        )
       ) : (
         <div className="product-card overflow-hidden">
           <Table>
@@ -1967,7 +2164,7 @@ function EmployeeMyReports() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {reports.map((report) => (
+              {filteredReports.map((report) => (
                 <TableRow key={report.id} className="border-b border-gray-50 last:border-0">
                   <TableCell className="text-sm text-gray-600 whitespace-nowrap">
                     {format(parseISO(report.date), 'MMM d, yyyy')}
@@ -3997,7 +4194,7 @@ function SettingsView() {
                 <SelectItem value="sw">Swahili</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-400 mt-1">Language preferences will be applied across the portal.</p>
+            <p className="text-xs text-gray-400 mt-1">Language preferences will be applied across the workspace.</p>
           </div>
         </div>
       </div>
@@ -4037,6 +4234,7 @@ export default function Home() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [globalSearchQuery, setGlobalSearchQuery] = useState('')
+  const [searchTick, setSearchTick] = useState(0)
   const [helpOpen, setHelpOpen] = useState(false)
 
   useEffect(() => {
@@ -4072,10 +4270,14 @@ export default function Home() {
       setGlobalSearchQuery(query)
       // Clear after a tick so AdminEmployees picks it up
       setTimeout(() => setGlobalSearchQuery(''), 100)
-      toast.info(`Searching for "${query}"`)
     } else {
+      // Remount-keyed handoff: the tick changes the EmployeeMyReports key so a
+      // fresh mount initializes its search with the submitted query. Clearing
+      // globalSearchQuery afterwards must not reset the visible search field.
       setEmployeeView('my-reports')
-      toast.info(`Searching for "${query}"`)
+      setGlobalSearchQuery(query)
+      setSearchTick((tick) => tick + 1)
+      setTimeout(() => setGlobalSearchQuery(''), 100)
     }
     window.scrollTo({ top: 0, behavior: 'instant' })
   }, [isAdmin])
@@ -4139,7 +4341,7 @@ export default function Home() {
     } else {
       switch (employeeView) {
         case 'submit': return <EmployeeSubmitReport />
-        case 'my-reports': return <EmployeeMyReports />
+        case 'my-reports': return <EmployeeMyReports key={`my-reports-search-${searchTick}`} initialSearch={globalSearchQuery || undefined} />
         case 'monthly-reports': return <EmployeeMonthlyReports />
         case 'settings': return <SettingsView />
         default: return <EmployeeSubmitReport />

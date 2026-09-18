@@ -110,6 +110,36 @@ export async function GET(request: NextRequest) {
       .map(([position, count]) => ({ position, count }))
       .sort((a, b) => b.count - a.count || a.position.localeCompare(b.position))
 
+    // Top reporters for the current month (real per-employee submission counts)
+    const monthRows = await db.reportingDailyReport.findMany({
+      where: { ...base, reportDate: { startsWith: currentMonth } },
+      select: { employeeId: true, reportDate: true },
+    })
+    const monthByEmployee = new Map<string, { count: number; lastDate: string }>()
+    for (const row of monthRows) {
+      const entry = monthByEmployee.get(row.employeeId)
+      if (entry) {
+        entry.count += 1
+        if (row.reportDate > entry.lastDate) entry.lastDate = row.reportDate
+      } else {
+        monthByEmployee.set(row.employeeId, { count: 1, lastDate: row.reportDate })
+      }
+    }
+    const employeesById = new Map(employees.map((employee) => [employee.id, employee]))
+    const topReporters = Array.from(monthByEmployee.entries())
+      .map(([employeeId, entry]) => {
+        const employee = employeesById.get(employeeId)
+        const user = employee?.membership?.userId ? usersById.get(employee.membership.userId) : undefined
+        return {
+          username: user?.username ?? employee?.displayName ?? 'Unknown employee',
+          position: employee?.position?.name ?? 'Unassigned',
+          count: entry.count,
+          lastDate: entry.lastDate,
+        }
+      })
+      .sort((a, b) => b.count - a.count || b.lastDate.localeCompare(a.lastDate))
+      .slice(0, 5)
+
     return NextResponse.json({
       totalEmployees: employees.length,
       activeEmployees: employees.length,
@@ -120,6 +150,7 @@ export async function GET(request: NextRequest) {
       currentMonth,
       today,
       positionBreakdown,
+      topReporters,
       reportsTrend: trend,
       missingTodayReports,
       recentReports,
