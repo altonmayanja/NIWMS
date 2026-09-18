@@ -249,6 +249,8 @@ model SaaSOrganization {
   id                   String                    @id @default(uuid()) @map("id")
   name                 String
   slug                 String                    @unique
+  // SAAS = native workspace product; LEGACY = migrated federation that keeps the portal experience.
+  organizationType     String                    @default("SAAS") @map("organization_type")
   status               String                   @default("trial")
   timezone             String                    @default("Africa/Kampala")
   reportDeadline       String                    @default("16:00") @map("report_deadline")

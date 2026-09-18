@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
 
     // Server-derived organization identity for the workspace shell.
     const organization = context?.organizationId
-      ? await db.saaSOrganization.findUnique({ where: { id: context.organizationId }, select: { name: true, reportDeadline: true } })
+      ? await db.saaSOrganization.findUnique({ where: { id: context.organizationId }, select: { name: true, reportDeadline: true, organizationType: true } })
       : undefined
 
     return NextResponse.json({
@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
       status: user.status,
       organizationId: context?.organizationId ?? undefined,
       organizationName: organization?.name ?? undefined,
+      organizationType: organization ? (organization.organizationType === 'LEGACY' ? 'LEGACY' : 'SAAS') : undefined,
       reportDeadline: organization?.reportDeadline ?? undefined,
       membershipId: context?.membershipId ?? undefined,
       organizationRole: context?.organizationRole ?? undefined,

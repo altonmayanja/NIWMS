@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { computeQuote, type BillingInterval } from '@/lib/billing/pricing'
 
 // Public endpoint backing the marketing "Start free trial" form.
 // Captures prospective-customer details for review by a Natural Intellects
@@ -62,6 +63,13 @@ export async function POST(request: NextRequest) {
     const contactName = typeof body.contactName === 'string' ? body.contactName.trim() : ''
     const contactEmail = typeof body.contactEmail === 'string' ? body.contactEmail.trim().toLowerCase() : ''
     const industry = typeof body.industry === 'string' ? body.industry.trim() : ''
+    // Optional pricing selection from the marketing calculator. Money figures
+    // are NEVER taken from the client — they are recomputed from the plan table
+    // below so the recorded request matches what the platform would invoice.
+    const planKey = typeof body.plan === 'string' ? body.plan.trim().toLowerCase() : ''
+    const billingIntervalRaw = typeof body.billingInterval === 'string' ? body.billingInterval.trim().toLowerCase() : ''
+    const seatsRaw = Number.parseInt(String(body.seats ?? ''), 10)
+    const seats = Number.isFinite(seatsRaw) && seatsRaw > 0 ? Math.min(seatsRaw, 100000) : null
 
     if (organizationName.length < 2 || organizationName.length > 120) {
       return NextResponse.json({ error: 'Organization name must be between 2 and 120 characters.' }, { status: 400 })
@@ -89,8 +97,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Resolve the requested plan + interval against the real catalog. Unknown
+    // selections are ignored (the request still goes through, unpriced).
+    let pricingNote: string | null = null
+    if (planKey) {
+      const plan = await db.plan.findUnique({ where: { key: planKey } })
+      if (plan && plan.active && plan.monthlyPrice > 0) {
+        const interval = (['monthly', 'quarterly', 'annual'] as const).includes(billingIntervalRaw as BillingInterval)
+          ? (billingIntervalRaw as BillingInterval)
+          : 'monthly'
+        const quote = computeQuote({ monthlyPrice: plan.monthlyPrice, interval })
+        pricingNote = `Requested plan: ${plan.name} (${interval}) · ${seats ?? 'unspecified'} seats · ${quote.total.toLocaleString('en-US')} UGX per ${interval === 'monthly' ? 'month' : `${interval === 'quarterly' ? '3' : '12'} months`} incl. VAT (${Math.round(quote.vatRate * 100)}%) · renews monthly-equivalent ${quote.effectiveMonthlyPrice.toLocaleString('en-US')} UGX/mo`
+      }
+    }
+
     const trialRequest = await db.trialRequest.create({
-      data: { organizationName, contactName, contactEmail, industry },
+      data: { organizationName, contactName, contactEmail, industry, notes: pricingNote },
       select: { id: true, createdAt: true },
     })
 

@@ -249,6 +249,8 @@ model SaaSOrganization {
   id                   String                    @id @default(uuid()) @map("id") @db.Uuid
   name                 String
   slug                 String                    @unique
+  // SAAS = native workspace product; LEGACY = migrated federation that keeps the portal experience.
+  organizationType     String                    @default("SAAS") @map("organization_type")
   status               String                   @default("trial")
   trialStartedAt       DateTime                 @default(now()) @map("trial_started_at")
   trialEndsAt          DateTime                 @default(dbgenerated("now() + interval '14 days'")) @map("trial_ends_at")

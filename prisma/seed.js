@@ -36,10 +36,13 @@ async function seed() {
     ];
     const planMap = new Map();
     for (const [code, name, monthlyPriceCents, maxMembers] of plans) {
+      // Annual anchor follows the billing engine's 10% interval discount
+      // (0.9 × 12 = 10.8 × monthly). Stored so DB-driven surfaces agree with the calculator.
+      const annualPriceCents = monthlyPriceCents === 0 ? 0 : Math.round(monthlyPriceCents * 10.8);
       const plan = await prisma.saaSPlan.upsert({
         where: { code },
-        update: { name, monthlyPriceCents, maxMembers, isActive: true },
-        create: { code, name, monthlyPriceCents, maxMembers, features: { reporting: true } },
+        update: { name, monthlyPriceCents, annualPriceCents, maxMembers, isActive: true },
+        create: { code, name, monthlyPriceCents, annualPriceCents, maxMembers, features: { reporting: true } },
       });
       planMap.set(code, plan);
     }
