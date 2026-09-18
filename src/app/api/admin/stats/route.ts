@@ -20,7 +20,18 @@ export async function GET(request: NextRequest) {
       where: { ...base, status: 'active' },
       include: { membership: true, position: true },
     })
-    const [totalReports, todayReports, monthReports, recentRows] = await Promise.all([
+    // 7-day reporting trend window (zero-filled so the UI can render honest gaps)
+    const trendDays = 7
+    const trend: { date: string; count: number }[] = []
+    const trendStart = new Date(`${today}T00:00:00Z`)
+    for (let offset = trendDays - 1; offset >= 0; offset--) {
+      const day = new Date(trendStart)
+      day.setUTCDate(day.getUTCDate() - offset)
+      trend.push({ date: day.toISOString().split('T')[0], count: 0 })
+    }
+    const trendIndex = new Map(trend.map((entry) => [entry.date, entry]))
+
+    const [totalReports, todayReports, monthReports, recentRows, trendRows] = await Promise.all([
       db.reportingDailyReport.count({ where: base }),
       db.reportingDailyReport.count({ where: { ...base, reportDate: today } }),
       db.reportingDailyReport.count({ where: { ...base, reportDate: { startsWith: currentMonth } } }),
@@ -30,7 +41,15 @@ export async function GET(request: NextRequest) {
         include: { employee: { include: { position: true, membership: true } } },
         orderBy: { createdAt: 'desc' },
       }),
+      db.reportingDailyReport.findMany({
+        where: { ...base, reportDate: { gte: trend[0].date, lte: today } },
+        select: { reportDate: true },
+      }),
     ])
+    for (const row of trendRows) {
+      const entry = trendIndex.get(row.reportDate)
+      if (entry) entry.count += 1
+    }
     const submittedToday = new Set((await db.reportingDailyReport.findMany({ where: { ...base, reportDate: today }, select: { employeeId: true } })).map((row) => row.employeeId))
 
     const relatedUserIds = [
@@ -81,6 +100,16 @@ export async function GET(request: NextRequest) {
         profile: profileFor(report.employee),
       },
     }))
+    // Active employees grouped by position (highest headcount first)
+    const positionCounts = new Map<string, number>()
+    for (const employee of employees) {
+      const positionName = employee.position?.name ?? 'Unassigned'
+      positionCounts.set(positionName, (positionCounts.get(positionName) ?? 0) + 1)
+    }
+    const positionBreakdown = Array.from(positionCounts.entries())
+      .map(([position, count]) => ({ position, count }))
+      .sort((a, b) => b.count - a.count || a.position.localeCompare(b.position))
+
     return NextResponse.json({
       totalEmployees: employees.length,
       activeEmployees: employees.length,
@@ -90,6 +119,8 @@ export async function GET(request: NextRequest) {
       monthReports,
       currentMonth,
       today,
+      positionBreakdown,
+      reportsTrend: trend,
       missingTodayReports,
       recentReports,
     })

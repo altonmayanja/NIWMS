@@ -17,7 +17,7 @@ import {
   Lock, LayoutDashboard, ClipboardCheck, CircleUser,
   ChevronUp, TrendingUp, Settings, MessageSquare,
   Info, Globe, Phone, Mail, BookOpen, MonitorSmartphone, Save,
-  BarChart3, RefreshCw, UsersRound,
+  BarChart3, RefreshCw, UsersRound, Archive,
 } from 'lucide-react'
 
 import { useAuthStore, type User } from '@/store/auth-store'
@@ -99,6 +99,8 @@ interface AdminStats {
   monthReports: number
   currentMonth: string
   today: string
+  positionBreakdown: { position: string; count: number }[]
+  reportsTrend: { date: string; count: number }[]
   missingTodayReports: { id: string; username: string; profile?: { employeeId?: string; position?: string } }[]
   recentReports: DailyReport[]
 }
@@ -730,7 +732,7 @@ function TopHeader({
 
         {/* Breadcrumb / Title */}
         <div className="hidden lg:block">
-          <p className="text-xs text-gray-400">Portal</p>
+          <p className="text-xs text-gray-400">Workspace</p>
           <p className="text-sm font-semibold text-gray-900">Natural Intellects</p>
         </div>
 
@@ -1154,7 +1156,7 @@ function AdminOverview() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
-      <Breadcrumb items={['Portal', 'Dashboard']} />
+      <Breadcrumb items={['Workspace', 'Dashboard']} />
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Operational Overview</h1>
@@ -1371,13 +1373,37 @@ function AdminOverview() {
             <h2 className="text-base font-semibold text-gray-900">Position Breakdown</h2>
             <p className="text-sm text-gray-500 mt-0.5">Active employees by position</p>
           </div>
-          <ScrollArea className="max-h-[280px]">
-            <div className="space-y-1">
-              {stats.missingTodayReports.length === 0 && (
-                <p className="text-gray-400 text-sm py-4">All employees have submitted reports today.</p>
-              )}
+          {stats.positionBreakdown?.length > 0 ? (
+            <ScrollArea className="max-h-[240px] pr-2">
+              <div className="space-y-4">
+                {stats.positionBreakdown.map((entry) => {
+                  const share = Math.round((entry.count / Math.max(stats.activeEmployees, 1)) * 100)
+                  return (
+                    <div key={entry.position}>
+                      <div className="flex items-center justify-between text-sm mb-1.5 gap-3">
+                        <span className="font-medium text-gray-700 truncate">{entry.position}</span>
+                        <span className="text-xs text-gray-500 tabular-nums shrink-0">
+                          {entry.count} {entry.count === 1 ? 'employee' : 'employees'} · {share}%
+                        </span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-[#123c36] rounded-full transition-all duration-500"
+                          style={{ width: `${Math.max(share, 4)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="flex flex-col items-center py-8">
+              <Users className="h-10 w-10 text-gray-200 mb-2" />
+              <p className="text-sm text-gray-500 font-medium">No employees yet</p>
+              <p className="text-xs text-gray-400 mt-0.5">Add employees to see your position mix.</p>
             </div>
-          </ScrollArea>
+          )}
         </div>
 
         {/* Missing Today's Reports */}
@@ -1419,6 +1445,41 @@ function AdminOverview() {
               </div>
             </ScrollArea>
           )}
+        </div>
+      </div>
+
+      {/* Reporting Trend (real 7-day counts from the API) */}
+      <div className="product-card p-6">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Reporting Trend</h2>
+            <p className="text-sm text-gray-500 mt-0.5">Reports submitted over the last 7 days</p>
+          </div>
+          <Badge className="bg-[#e9f0ee] text-[#356247] border-[#d2ddda] rounded-full px-2.5 text-[10px] font-medium shrink-0">
+            {stats.reportsTrend?.reduce((sum, day) => sum + day.count, 0) ?? 0} in 7 days
+          </Badge>
+        </div>
+        <div className="flex items-end gap-2 sm:gap-3">
+          {(stats.reportsTrend ?? []).map((day) => {
+            const weekMax = Math.max(...(stats.reportsTrend?.map((d) => d.count) ?? [0]), 1)
+            const heightPct = Math.max((day.count / weekMax) * 100, day.count > 0 ? 10 : 3)
+            const isToday = day.date === stats.today
+            return (
+              <div key={day.date} className="flex-1 flex flex-col items-center gap-2 min-w-0">
+                <span className="text-xs font-semibold text-gray-700 tabular-nums">{day.count}</span>
+                <div className="w-full flex items-end justify-center h-24">
+                  <div
+                    title={`${day.count} ${day.count === 1 ? 'report' : 'reports'} on ${format(parseISO(day.date), 'EEE, MMM d')}`}
+                    className={`w-full max-w-[44px] rounded-t-md transition-all duration-500 hover:opacity-80 ${isToday ? 'bg-[#c47b32]' : 'bg-[#123c36]/85'}`}
+                    style={{ height: `${heightPct}%` }}
+                  />
+                </div>
+                <span className={`text-[10px] sm:text-xs whitespace-nowrap ${isToday ? 'text-[#c47b32] font-bold' : 'text-gray-400'}`}>
+                  {format(parseISO(day.date), 'EEE d')}
+                </span>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -2145,7 +2206,7 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
-      <Breadcrumb items={['Portal', 'Workforce Management']} />
+      <Breadcrumb items={['Workspace', 'Workforce Management']} />
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Employee Management</h1>
@@ -2197,21 +2258,41 @@ function AdminEmployees({ initialSearch }: { initialSearch?: string }) {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="product-card p-4">
-          <p className="text-xs text-gray-500">Total Employees</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{employees.length}</p>
+        <div className="product-card p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Total Employees</p>
+            <p className="text-xl font-bold text-gray-900 mt-1 tabular-nums">{employees.length}</p>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-[#123c36]/5 flex items-center justify-center shrink-0">
+            <Users className="h-4.5 w-4.5 text-[#123c36]" />
+          </div>
         </div>
-        <div className="product-card p-4">
-          <p className="text-xs text-gray-500">Active Roles</p>
-          <p className="text-xl font-bold text-green-600 mt-1">{activeCount}</p>
+        <div className="product-card p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Active Roles</p>
+            <p className="text-xl font-bold text-green-600 mt-1 tabular-nums">{activeCount}</p>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
+            <UserCheck className="h-4.5 w-4.5 text-green-600" />
+          </div>
         </div>
-        <div className="product-card p-4">
-          <p className="text-xs text-gray-500">Suspended</p>
-          <p className="text-xl font-bold text-amber-600 mt-1">{suspendedCount}</p>
+        <div className="product-card p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Suspended</p>
+            <p className="text-xl font-bold text-amber-600 mt-1 tabular-nums">{suspendedCount}</p>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center shrink-0">
+            <AlertCircle className="h-4.5 w-4.5 text-amber-600" />
+          </div>
         </div>
-        <div className="product-card p-4">
-          <p className="text-xs text-gray-500">Archived</p>
-          <p className="text-xl font-bold text-gray-400 mt-1">{archivedCount}</p>
+        <div className="product-card p-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-500">Archived</p>
+            <p className="text-xl font-bold text-gray-400 mt-1 tabular-nums">{archivedCount}</p>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+            <Archive className="h-4.5 w-4.5 text-gray-400" />
+          </div>
         </div>
       </div>
 
@@ -2541,7 +2622,7 @@ function AdminReports() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
-      <Breadcrumb items={['Portal', 'Reports']} />
+      <Breadcrumb items={['Workspace', 'Reports']} />
       <div>
         <h1 className="text-xl font-bold text-gray-900 tracking-tight">All Reports</h1>
         <p className="text-sm text-gray-500 mt-0.5">View and filter all employee reports</p>
@@ -2739,7 +2820,7 @@ function AdminExport() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
-      <Breadcrumb items={['Portal', 'Export']} />
+      <Breadcrumb items={['Workspace', 'Export']} />
       <div>
         <h1 className="text-xl font-bold text-gray-900 tracking-tight">Export Reports</h1>
         <p className="text-sm text-gray-500 mt-0.5">Download monthly reports as Excel file</p>
@@ -3399,7 +3480,7 @@ function AdminMonthlyReports() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6">
-      <Breadcrumb items={['Portal', 'Monthly Reports']} />
+      <Breadcrumb items={['Workspace', 'Monthly Reports']} />
       <div>
         <h1 className="text-xl font-bold text-gray-900 tracking-tight">Monthly Report Intelligence</h1>
         <p className="text-sm text-gray-500 mt-0.5">Generate professional monthly reports for employees</p>
@@ -3775,7 +3856,7 @@ function SettingsView() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="space-y-6 max-w-2xl">
-      <Breadcrumb items={['Portal', 'Settings']} />
+      <Breadcrumb items={['Workspace', 'Settings']} />
       <div>
         <h1 className="text-xl font-bold text-gray-900 tracking-tight">Settings</h1>
         <p className="text-sm text-gray-500 mt-0.5">Manage your account and preferences</p>
