@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Building2, Users, FileText, CreditCard, ShieldAlert, ArrowLeft, RefreshCw, Search, CalendarClock, Inbox, UserPlus, KeyRound, Copy, Check, X, Loader2, Sparkles, Hourglass, Mail, ChevronDown, AlertCircle } from 'lucide-react'
+import { Building2, Users, FileText, CreditCard, ShieldAlert, ArrowLeft, RefreshCw, Search, CalendarClock, Inbox, UserPlus, KeyRound, Copy, Check, X, Loader2, Sparkles, Hourglass, Mail, ChevronDown, AlertCircle, Eye, AlignLeft } from 'lucide-react'
 
 type Overview = { metrics: Record<string, number>; organizations: { id: string; name: string; slug: string; status: string; createdAt: string; trialEndsAt: string | null; subscription: { status: string; plan: { name: string } } | null; _count: { users: number } }[] }
 
@@ -33,6 +33,7 @@ type EmailRow = {
   toEmail: string
   subject: string
   body: string
+  html: string | null
   category: string
   status: string
   provider: string
@@ -155,6 +156,8 @@ export default function PlatformPage() {
   const [emailsTotal, setEmailsTotal] = useState(0)
   const [emailsFailed, setEmailsFailed] = useState(0)
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null)
+  // Per-email body rendering: plain text (default) or the branded HTML preview.
+  const [emailPreviewMode, setEmailPreviewMode] = useState<Record<string, boolean>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -433,7 +436,41 @@ export default function PlatformPage() {
                   {expanded && (
                     <div className="px-5 pb-5 lg:pl-14">
                       <div className="rounded-lg border border-[#2a4237] bg-[#0f1a17]/70 p-4">
-                        <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-[#d8e2dc]">{email.body}</pre>
+                        {email.html && (
+                          <div className="mb-3 flex items-center justify-between gap-3">
+                            <span className="text-[11px] font-semibold uppercase tracking-widest text-[#7f948a]">Message body</span>
+                            <div className="inline-flex overflow-hidden rounded-full border border-[#2a4237]" role="group" aria-label="Body rendering mode">
+                              <button
+                                type="button"
+                                onClick={() => setEmailPreviewMode((modes) => ({ ...modes, [email.id]: false }))}
+                                aria-pressed={!emailPreviewMode[email.id]}
+                                className={`inline-flex min-h-8 items-center gap-1.5 px-3 text-xs font-medium transition-colors ${!emailPreviewMode[email.id] ? 'bg-[#e9b44c]/15 text-[#e9b44c]' : 'text-[#7f948a] hover:bg-white/5 hover:text-[#a8b8b0]'}`}
+                              >
+                                <AlignLeft className="h-3.5 w-3.5" />
+                                Text
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEmailPreviewMode((modes) => ({ ...modes, [email.id]: true }))}
+                                aria-pressed={!!emailPreviewMode[email.id]}
+                                className={`inline-flex min-h-8 items-center gap-1.5 px-3 text-xs font-medium transition-colors ${emailPreviewMode[email.id] ? 'bg-[#e9b44c]/15 text-[#e9b44c]' : 'text-[#7f948a] hover:bg-white/5 hover:text-[#a8b8b0]'}`}
+                              >
+                                <Eye className="h-3.5 w-3.5" />
+                                Preview
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        {email.html && emailPreviewMode[email.id] ? (
+                          <iframe
+                            srcDoc={email.html}
+                            sandbox=""
+                            title={`Preview of ${email.subject}`}
+                            className="h-[380px] w-full rounded-md border border-[#2a4237] bg-white"
+                          />
+                        ) : (
+                          <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-[#d8e2dc]">{email.body}</pre>
+                        )}
                         {email.error && (
                           <p className="mt-3 flex items-start gap-2 rounded-md border border-[#e2705f]/40 bg-[#e2705f]/10 px-3 py-2 text-xs text-[#e2705f]">
                             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />

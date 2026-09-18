@@ -1,4 +1,5 @@
 import { db } from '@/lib/db'
+import { brandEmailLayout } from '@/lib/email-templates'
 
 /**
  * Email delivery with a provider adapter:
@@ -26,6 +27,8 @@ export type OutgoingEmail = {
   to: string
   subject: string
   text: string
+  /** Branded HTML rendering — persisted alongside the text body when provided. */
+  html?: string
   category: EmailCategory
   organizationId?: string | null
 }
@@ -68,6 +71,7 @@ async function sendViaSmtp(message: OutgoingEmail): Promise<void> {
     to: message.to,
     subject: message.subject,
     text: message.text,
+    html: message.html,
   })
 }
 
@@ -92,6 +96,7 @@ export async function sendEmail(message: OutgoingEmail): Promise<EmailDeliveryRe
           toEmail: message.to,
           subject: message.subject,
           body: message.text,
+          html: message.html ?? null,
           category: message.category,
           status: 'failed',
           provider: 'smtp',
@@ -106,6 +111,7 @@ export async function sendEmail(message: OutgoingEmail): Promise<EmailDeliveryRe
         toEmail: message.to,
         subject: message.subject,
         body: message.text,
+        html: message.html ?? null,
         category: message.category,
         status: 'sent',
         provider: 'smtp',
@@ -122,6 +128,7 @@ export async function sendEmail(message: OutgoingEmail): Promise<EmailDeliveryRe
       toEmail: message.to,
       subject: message.subject,
       body: message.text,
+      html: message.html ?? null,
       category: message.category,
       status: 'sent',
       provider: 'outbox',
@@ -145,6 +152,7 @@ export async function queueEmail(message: OutgoingEmail): Promise<EmailDeliveryR
           toEmail: message.to,
           subject: message.subject,
           body: message.text,
+          html: message.html ?? null,
           category: message.category,
           status: 'failed',
           provider: getEmailProvider(),
@@ -204,6 +212,33 @@ export function trialCredentialsEmail(input: {
       ``,
       `— Natural Intellects Ltd`,
     ].join('\n'),
+    html: brandEmailLayout({
+      heading: `Your trial workspace for ${input.organizationName} is ready`,
+      intro: 'Your 14-day Natural Intellects trial starts now. Sign in with the temporary credentials below — you will set your own password on first login.',
+      highlight: {
+        label: 'Sign-in credentials — shown only once',
+        rows: [
+          ['Administrator email', input.adminUsername],
+          ['Temporary password', input.temporaryPassword],
+        ],
+        note: 'Share these credentials securely — they are not shown anywhere else.',
+      },
+      sections: [
+        {
+          title: 'Workspace details',
+          lines: [
+            `Workspace: ${input.organizationName} (slug: ${input.slug})`,
+            `Trial ends: ${input.trialEndsAt.toLocaleDateString()}`,
+            `Sign-in page: ${input.loginUrl ?? '/login'}`,
+          ],
+        },
+        {
+          lines: [
+            'Your reports, employees, and settings stay intact for the whole trial — no payment details required.',
+          ],
+        },
+      ],
+    }),
   }
 }
 
@@ -213,19 +248,39 @@ export function trialWarningEmail(input: {
   daysLeft: number
   trialEndsAt: Date
 }): OutgoingEmail {
+  const when = input.daysLeft === 0 ? 'today' : `in ${input.daysLeft} day${input.daysLeft === 1 ? '' : 's'}`
   return {
     to: input.to,
-    subject: `Action needed: your Natural Intellects trial ends ${input.daysLeft === 0 ? 'today' : `in ${input.daysLeft} day${input.daysLeft === 1 ? '' : 's'}`}`,
+    subject: `Action needed: your Natural Intellects trial ends ${when}`,
     category: 'trial_warning',
     text: [
       `Hello,`,
       ``,
-      `Your Natural Intellects trial for ${input.organizationName} ends ${input.daysLeft === 0 ? 'today' : `in ${input.daysLeft} day${input.daysLeft === 1 ? '' : 's'}`} (${input.trialEndsAt.toLocaleDateString()}).`,
+      `Your Natural Intellects trial for ${input.organizationName} ends ${when} (${input.trialEndsAt.toLocaleDateString()}).`,
       ``,
       `Contact us to choose a plan and keep your workspace — your reports and history stay intact.`,
       ``,
       `— Natural Intellects Ltd`,
     ].join('\n'),
+    html: brandEmailLayout({
+      heading: `Your trial for ${input.organizationName} ends ${when}`,
+      intro: `Renew or choose a plan before ${input.trialEndsAt.toLocaleDateString()} to keep your workspace running without interruption.`,
+      sections: [
+        {
+          title: 'What stays intact',
+          lines: [
+            'Every daily and monthly report your team has submitted.',
+            'Your employee roster and workspace settings.',
+            'Your reporting schedule and reminder preferences.',
+          ],
+        },
+        {
+          lines: [
+            'Contact Natural Intellects Ltd to pick the plan that fits your team — your workspace continues exactly where it left off.',
+          ],
+        },
+      ],
+    }),
   }
 }
 
@@ -245,6 +300,17 @@ export function dailyDigestEmail(input: {
       ``,
       `— Natural Intellects Workforce Management System`,
     ].join('\n'),
+    html: brandEmailLayout({
+      heading: `Daily reporting digest — ${input.organizationName}`,
+      intro: input.message,
+      sections: [
+        {
+          lines: [
+            'Open your NIWMS workspace for the full picture: submissions, top reporters, and anyone still to report today.',
+          ],
+        },
+      ],
+    }),
   }
 }
 
@@ -262,5 +328,18 @@ export function passwordChangedEmail(input: { to: string; when: Date }): Outgoin
       ``,
       `— Natural Intellects Ltd`,
     ].join('\n'),
+    html: brandEmailLayout({
+      heading: 'Your password was changed',
+      intro: `The password for your Natural Intellects account (${input.to}) was changed on ${input.when.toLocaleString()}.`,
+      sections: [
+        {
+          title: 'Was this you?',
+          lines: [
+            'If yes — no action is needed; all other sessions were signed out automatically.',
+            'If not — contact your organization administrator immediately.',
+          ],
+        },
+      ],
+    }),
   }
 }

@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
           toEmail: true,
           subject: true,
           body: true,
+          html: true,
           category: true,
           status: true,
           provider: true,

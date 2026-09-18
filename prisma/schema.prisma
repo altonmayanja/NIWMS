@@ -131,6 +131,7 @@ model EmailMessage {
   toEmail        String
   subject        String
   body           String    @db.Text
+  html           String?   @db.Text // branded HTML rendering when the builder provides one
   category       String    // "trial_credentials" | "trial_warning" | "daily_digest" | "password_changed" | "system"
   status         String    @default("sent") // "sent" | "failed"
   provider       String    @default("outbox") // "outbox" | "smtp"

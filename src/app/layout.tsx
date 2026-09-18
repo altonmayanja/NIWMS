@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
+import { SessionExpiryGuard } from "@/components/session-expiry-guard";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,11 +28,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="bg-background" suppressHydrationWarning>
+    <html
+      lang="en"
+      className="bg-background"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <body
         className={`${inter.variable} antialiased`}
       >
         {children}
+        <SessionExpiryGuard />
         <Toaster />
       </body>
     </html>
