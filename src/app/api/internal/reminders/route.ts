@@ -9,11 +9,12 @@ export async function POST(request: Request) {
   let created = 0
   for (const organization of organizations) {
     const now = new Date()
-    const { dateKey } = getLocalReminderWindow(now, 'Africa/Kampala')
+    const orgTimezone = organization.timezone || 'Africa/Kampala'
+    const { dateKey } = getLocalReminderWindow(now, orgTimezone, organization.reportDeadline)
     for (const employee of organization.reportingEmployees) {
       const submitted = await db.reportingDailyReport.findUnique({ where: { employeeId_reportDate: { employeeId: employee.id, reportDate: dateKey } }, select: { id: true } })
       const exists = await db.reportingNotification.findFirst({ where: { organizationId: organization.id, employeeId: employee.id, type: 'reminder', title: DAILY_REMINDER_TITLE, createdAt: { gte: new Date(`${dateKey}T00:00:00.000Z`) } } })
-      if (!shouldCreateReminder({ organization: { ...organization, timezone: 'Africa/Kampala', settings: { reminderEnabled: true } }, submitted: Boolean(submitted), existingReminder: Boolean(exists), now })) continue
+      if (!shouldCreateReminder({ organization: { ...organization, timezone: orgTimezone, settings: { reminderEnabled: organization.reminderEnabled, reportDeadline: organization.reportDeadline } }, submitted: Boolean(submitted), existingReminder: Boolean(exists), now })) continue
       await db.reportingNotification.create({ data: { organizationId: organization.id, employeeId: employee.id, title: DAILY_REMINDER_TITLE, message: 'Please submit your daily report before the reporting deadline.', type: 'reminder' } })
       created += 1
     }

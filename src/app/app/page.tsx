@@ -16,7 +16,7 @@ import {
   Clapperboard, Shield, Bell, HelpCircle, ArrowRight,
   Lock, LayoutDashboard, ClipboardCheck, CircleUser,
   ChevronUp, TrendingUp, Settings, MessageSquare,
-  Info, Globe, Phone, Mail, BookOpen, MonitorSmartphone,
+  Info, Globe, Phone, Mail, BookOpen, MonitorSmartphone, Save,
   BarChart3, RefreshCw, UsersRound,
 } from 'lucide-react'
 
@@ -44,6 +44,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
@@ -519,6 +520,9 @@ function Sidebar({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white truncate">{user?.username}</p>
+              <p className="text-[10px] text-[#9ab8b1]/80 truncate" title={user?.organizationName}>
+                {user?.organizationName || 'Your organization'}
+              </p>
               <p className="text-[10px] text-blue-300/50">
                 {user?.role === 'admin' ? t('sidebar.administrator') : (user?.profile?.position || user?.role)}
               </p>
@@ -3617,9 +3621,120 @@ function AdminMonthlyReports() {
 // SETTINGS VIEW
 // =====================================================================
 
+const ORGANIZATION_TIMEZONES = [
+  'Africa/Kampala',
+  'Africa/Nairobi',
+  'Africa/Dar_es_Salaam',
+  'Africa/Lagos',
+  'Africa/Cairo',
+  'Africa/Johannesburg',
+  'Europe/London',
+  'UTC',
+]
+
+function OrganizationSettingsCard() {
+  const [settings, setSettings] = useState<{ name: string; slug: string; timezone: string; reportDeadline: string; reminderEnabled: boolean } | null>(null)
+  const [timezone, setTimezone] = useState('Africa/Kampala')
+  const [deadline, setDeadline] = useState('16:00')
+  const [reminderEnabled, setReminderEnabled] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    apiGet<{ name: string; slug: string; timezone: string; reportDeadline: string; reminderEnabled: boolean }>('/api/organizations/settings')
+      .then((data) => {
+        setSettings(data)
+        setTimezone(data.timezone || 'Africa/Kampala')
+        setDeadline(data.reportDeadline || '16:00')
+        setReminderEnabled(Boolean(data.reminderEnabled))
+      })
+      .catch(() => toast.error('Unable to load organization settings'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const updated = await apiPatch<{ name: string; slug: string; timezone: string; reportDeadline: string; reminderEnabled: boolean }>('/api/organizations/settings', {
+        timezone,
+        reportDeadline: deadline,
+        reminderEnabled,
+      })
+      setSettings(updated)
+      toast.success('Organization settings saved')
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Unable to save organization settings')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="product-card p-6">
+      <div className="flex items-center gap-2 mb-5">
+        <Clock className="h-5 w-5 text-[#123c36]" />
+        <h2 className="text-base font-semibold text-gray-900">Reporting preferences</h2>
+      </div>
+      <p className="text-sm text-gray-500 mb-5">Applies to everyone in your organization. Reminders are sent to employees who have not submitted by the deadline.</p>
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>
+      ) : (
+        <div className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">Organization</Label>
+              <Input value={settings?.name ?? ''} disabled className="h-10 rounded-lg border-gray-200 bg-gray-50/60" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">Timezone</Label>
+              <Select value={timezone} onValueChange={(v) => setTimezone(v)}>
+                <SelectTrigger className="w-full h-10 rounded-lg border-gray-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {ORGANIZATION_TIMEZONES.map((zone) => (
+                    <SelectItem key={zone} value={zone}>{zone.replaceAll('_', ' ')}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-gray-700">Daily report deadline</Label>
+              <input
+                type="time"
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value || '16:00')}
+                className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm outline-none transition focus:border-[#123c36]"
+                aria-label="Daily report deadline"
+              />
+              <p className="text-xs text-gray-400 mt-1">Local organization time (HH:MM).</p>
+            </div>
+            <div className="flex items-start justify-between gap-4 rounded-lg border border-gray-200 p-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Daily reminders</p>
+                <p className="mt-1 text-xs leading-5 text-gray-400">Notify employees without a submitted report.</p>
+              </div>
+              <Switch checked={reminderEnabled} onCheckedChange={(checked) => setReminderEnabled(checked)} aria-label="Toggle daily reminders" />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleSave} disabled={saving} className="bg-[#123c36] hover:bg-[#1d5249] text-white rounded-lg h-10 px-5">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save preferences
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SettingsView() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
+  const isAdminAccount = user?.role === 'admin' || user?.role === 'super_admin'
   const { t, locale, setLocale } = useTranslation()
 
   const [oldPassword, setOldPassword] = useState('')
@@ -3805,6 +3920,9 @@ function SettingsView() {
           </div>
         </div>
       </div>
+
+      {/* Organization Reporting Preferences (admins only) */}
+      {isAdminAccount && <OrganizationSettingsCard />}
 
       {/* Logout */}
       <div className="product-card p-6">

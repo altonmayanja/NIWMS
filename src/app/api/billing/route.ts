@@ -9,7 +9,33 @@ export async function GET(request: NextRequest) {
   if (!context) return response
   const organization = await db.saaSOrganization.findUnique({ where: { id: context.organizationId }, include: { subscriptions: { include: { plan: true } } } })
   if (!organization) return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
-  return NextResponse.json({ organization: { id: organization.id, status: organization.status, trialStartedAt: organization.trialStartedAt, trialEndsAt: organization.trialEndsAt }, subscription: organization.subscriptions[0] || null, plan: organization.subscriptions[0]?.plan || null })
+  const subscription = organization.subscriptions[0] || null
+  const plan = subscription?.plan || null
+  const [employeeCount] = await Promise.all([
+    db.reportingEmployee.count({ where: { organizationId: organization.id, status: { not: 'archived' } } }),
+  ])
+  const employeeLimit = plan?.maxMembers ?? null
+  return NextResponse.json({
+    organization: { id: organization.id, status: organization.status, trialStartedAt: organization.trialStartedAt, trialEndsAt: organization.trialEndsAt },
+    subscription: subscription
+      ? {
+          status: subscription.status,
+          provider: subscription.provider,
+          currentPeriodEnd: subscription.currentPeriodEnd,
+          cancelAtPeriodEnd: Boolean(subscription.canceledAt),
+          trialEndsAt: subscription.trialEndsAt,
+          plan: {
+            key: plan?.code ?? '',
+            name: plan?.name ?? 'Unassigned',
+            // Stored in minor units (UGX cents); the UI presents whole UGX.
+            monthlyPrice: plan ? plan.monthlyPriceCents / 100 : 0,
+            maxEmployees: plan?.maxMembers ?? null,
+          },
+        }
+      : null,
+    plan,
+    usage: { employeeCount, employeeLimit, canAddEmployee: employeeLimit === null || employeeCount < employeeLimit },
+  })
 }
 
 export async function POST(request: NextRequest) {

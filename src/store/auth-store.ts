@@ -11,6 +11,7 @@ export interface User {
   role: 'admin' | 'employee' | 'super_admin'
   status: string
   organizationId?: string
+  organizationName?: string
   membershipId?: string
   organizationRole?: string
   profile: UserProfile | null

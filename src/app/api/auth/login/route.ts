@@ -138,6 +138,7 @@ export async function POST(request: NextRequest) {
         role: user.role,
         status: user.status,
         organizationId: membership?.organizationId ?? organization?.id,
+        organizationName: organization?.name ?? undefined,
         membershipId: membership?.id,
         organizationRole: membership?.role,
         organization: organization ? { id: organization.id, name: organization.name, slug: organization.slug } : null,

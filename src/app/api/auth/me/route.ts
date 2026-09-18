@@ -30,12 +30,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Server-derived organization identity for the workspace shell.
+    const organizationName = context?.organizationId
+      ? (await db.saaSOrganization.findUnique({ where: { id: context.organizationId }, select: { name: true } }))?.name
+      : undefined
+
     return NextResponse.json({
       id: user.id,
       username: user.username,
       role: user.role,
       status: user.status,
       organizationId: context?.organizationId ?? undefined,
+      organizationName: organizationName ?? undefined,
       membershipId: context?.membershipId ?? undefined,
       organizationRole: context?.organizationRole ?? undefined,
       createdAt: user.createdAt,
