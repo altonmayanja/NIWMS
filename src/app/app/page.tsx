@@ -875,7 +875,7 @@ function TopHeader({
                     <div className="flex items-center justify-between">
                       <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Notifications</h3>
                       {unreadCount > 0 && (
-                        <button onClick={markAllRead} className="text-[10px] font-medium text-[#123c36] hover:underline">
+                        <button onClick={markAllRead} className="text-[10px] font-semibold text-[#123c36] bg-[#123c36]/5 hover:bg-[#123c36]/10 border border-[#123c36]/15 rounded-full px-2.5 py-1 transition-colors">
                           {t('notifications.markAllRead')}
                         </button>
                       )}
