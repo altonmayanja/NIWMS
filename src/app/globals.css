@@ -185,7 +185,29 @@
 .marketing-shell #features > div > div:first-child p,
 .marketing-shell #pricing > div:first-child p { text-align: center; }
 .marketing-shell #how-it-works > div:first-child { text-align: left; }
-.marketing-shell #how-it-works > div:first-child + div { min-height: 280px; }
+.marketing-shell #how-it-works > div:first-child {
+  grid-template-columns: minmax(0, 1.18fr) minmax(280px, .82fr);
+}
+.marketing-shell #how-it-works > div:first-child > .workflow-visual {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+.marketing-shell #how-it-works > div:first-child > div:nth-child(2),
+.marketing-shell #how-it-works > div:first-child > div:nth-child(3) {
+  grid-column: 2;
+}
+.marketing-shell #how-it-works > div:first-child > div:nth-child(3) { min-height: 240px; }
+.marketing-shell section:not(#security) + section.mx-5 {
+  background: #123c36;
+  color: #f4f6f8;
+  box-shadow: 0 18px 42px rgba(18, 60, 54, .12);
+}
+@media (max-width: 1023px) {
+  .marketing-shell #how-it-works > div:first-child { grid-template-columns: 1fr; }
+  .marketing-shell #how-it-works > div:first-child > .workflow-visual,
+  .marketing-shell #how-it-works > div:first-child > div:nth-child(2),
+  .marketing-shell #how-it-works > div:first-child > div:nth-child(3) { grid-column: auto; grid-row: auto; }
+}
 @media (max-width: 639px) {
   .marketing-shell .hero-preview { transform: none; }
   .marketing-shell .hero-preview > div { min-width: 0; }
