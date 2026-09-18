@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./../db/custom.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -31,15 +31,15 @@ model MonthlyReport {
   id           String   @id @default(cuid())
   userId       String
   month        String // YYYY-MM format
-  reportData   String   // JSON - the full generated report
+  reportData   String   @db.Text // JSON - the full generated report
 
   // Computed summary fields for quick display
   totalReports     Int
   totalActivities  Int
   submissionRate   Float
-  categoryBreakdown String // JSON
-  summary          String // Professional summary text
-  achievements     String // JSON array of achievement strings
+  categoryBreakdown String @db.Text // JSON
+  summary          String @db.Text // Professional summary text
+  achievements     String @db.Text // JSON array of achievement strings
 
   status       String   @default("draft") // "draft" | "generated" | "approved" | "archived"
   generatedBy  String?  // userId of admin who generated, or "self" for employee
@@ -78,11 +78,11 @@ model DailyReport {
   id           String   @id @default(cuid())
   userId       String
   date         String // YYYY-MM-DD format
-  activityText String  
+  activityText String   @db.Text
   location     String?  // Where the activity was performed
   timeIn       String?  // HH:MM format - clock-in time
   timeOut      String?  // HH:MM format - clock-out time
-  comments     String?  // Additional comments or remarks
+  comments     String?  @db.Text // Additional comments or remarks
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -95,7 +95,7 @@ model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
   action    String // "login", "report_created", "employee_created", "export", etc.
-  details   String?  // JSON string with additional details
+  details   String?  @db.Text // JSON string with additional details
   ipAddress String?
   createdAt DateTime @default(now())
 
@@ -106,7 +106,7 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String?  // null = broadcast to all employees
   title     String
-  message   String  
+  message   String   @db.Text
   type      String   @default("info") // "info" | "reminder" | "warning" | "success" | "announcement"
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -178,7 +178,7 @@ model Plan {
   name            String
   monthlyPrice    Int      @default(0)
   maxEmployees    Int?
-  entitlements    String  
+  entitlements    String   @db.Text
   active          Boolean  @default(true)
   subscriptions   Subscription[]
 }
@@ -211,7 +211,7 @@ model AuditEvent {
   action         String
   entityType     String?
   entityId       String?
-  metadata       String? 
+  metadata       String?  @db.Text
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -221,15 +221,12 @@ model AuditEvent {
 }
 
 model SaaSOrganization {
-  id                   String                    @id @default(uuid()) @map("id")
+  id                   String                    @id @default(uuid()) @map("id") @db.Uuid
   name                 String
   slug                 String                    @unique
   status               String                   @default("trial")
-  timezone             String                    @default("Africa/Kampala")
-  reportDeadline       String                    @default("16:00") @map("report_deadline")
-  reminderEnabled      Boolean                   @default(true) @map("reminder_enabled")
   trialStartedAt       DateTime                 @default(now()) @map("trial_started_at")
-  trialEndsAt          DateTime                 @default(now()) @map("trial_ends_at")
+  trialEndsAt          DateTime                 @default(dbgenerated("now() + interval '14 days'")) @map("trial_ends_at")
   graceEndsAt          DateTime?                @map("grace_ends_at")
   deletionRequestedAt  DateTime?                @map("deletion_requested_at")
   createdAt            DateTime                 @default(now()) @map("created_at")
@@ -251,8 +248,8 @@ model SaaSOrganization {
 }
 
 model SaaSOrganizationMembership {
-  id             String           @id @default(uuid())
-  organizationId String           @map("organization_id")
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
   userId         String           @map("user_id")
   role           String           @default("member")
   status         String           @default("active")
@@ -267,14 +264,14 @@ model SaaSOrganizationMembership {
 }
 
 model SaaSPlan {
-  id                 String            @id @default(uuid())
+  id                 String            @id @default(uuid()) @db.Uuid
   code               String            @unique
   name               String
   monthlyPriceCents  Int               @default(0) @map("monthly_price_cents")
   annualPriceCents   Int               @default(0) @map("annual_price_cents")
   maxMembers         Int?              @map("max_members")
   maxReportsPerMonth Int?              @map("max_reports_per_month")
-  features           Json?
+  features           Json              @default("{}")
   isActive           Boolean           @default(true) @map("is_active")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
@@ -284,9 +281,9 @@ model SaaSPlan {
 }
 
 model SaaSSubscription {
-  id                    String          @id @default(uuid())
-  organizationId        String          @unique @map("organization_id")
-  planId                String          @map("plan_id")
+  id                    String          @id @default(uuid()) @db.Uuid
+  organizationId        String          @unique @map("organization_id") @db.Uuid
+  planId                String          @map("plan_id") @db.Uuid
   status                String          @default("trialing")
   billingInterval       String          @default("monthly") @map("billing_interval")
   provider              String          @default("manual")
@@ -306,12 +303,12 @@ model SaaSSubscription {
 }
 
 model SaaSBillingEvent {
-  id                String           @id @default(uuid())
+  id                String           @id @default(uuid()) @db.Uuid
   provider          String
   providerEventId   String           @map("provider_event_id")
-  organizationId    String?          @map("organization_id")
+  organizationId    String?          @map("organization_id") @db.Uuid
   eventType         String           @map("event_type")
-  payload           Json?
+  payload           Json             @default("{}")
   processedAt       DateTime?        @map("processed_at")
   createdAt         DateTime         @default(now()) @map("created_at")
   organization      SaaSOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
@@ -322,14 +319,14 @@ model SaaSBillingEvent {
 }
 
 model SaaSAuditLog {
-  id             String           @id @default(uuid())
-  organizationId String?          @map("organization_id")
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String?          @map("organization_id") @db.Uuid
   actorUserId    String?          @map("actor_user_id")
   action         String
   resourceType   String           @map("resource_type")
   resourceId     String?          @map("resource_id")
-  metadata       Json?
-  ipAddress      String?          @map("ip_address")
+  metadata       Json             @default("{}")
+  ipAddress      String?          @map("ip_address") @db.Inet
   createdAt      DateTime         @default(now()) @map("created_at")
   organization   SaaSOrganization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
@@ -338,13 +335,13 @@ model SaaSAuditLog {
 }
 
 model SaaSUsageEvent {
-  id             String           @id @default(uuid())
-  organizationId String           @map("organization_id")
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
   userId         String?          @map("user_id")
   eventType      String           @map("event_type")
   quantity       Int              @default(1)
   occurredAt     DateTime         @default(now()) @map("occurred_at")
-  metadata       Json?
+  metadata       Json             @default("{}")
   organization   SaaSOrganization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, occurredAt])
@@ -352,8 +349,8 @@ model SaaSUsageEvent {
 }
 
 model SaaSDeletionRequest {
-  id                  String           @id @default(uuid())
-  organizationId      String           @map("organization_id")
+  id                  String           @id @default(uuid()) @db.Uuid
+  organizationId      String           @map("organization_id") @db.Uuid
   requestedByUserId   String           @map("requested_by_user_id")
   status              String           @default("pending")
   scheduledFor        DateTime         @map("scheduled_for")
@@ -371,7 +368,7 @@ model PasswordResetRequest {
   userId    String?
   username  String // username of the requester (may not have account)
   status    String   @default("pending") // "pending" | "resolved" | "rejected"
-  message   String?  // optional message from the requester
+  message   String?  @db.Text // optional message from the requester
   resolvedBy String? // userId of admin who resolved it
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -380,8 +377,8 @@ model PasswordResetRequest {
 }
 
 model ReportingDepartment {
-  id             String                         @id @default(uuid())
-  organizationId String                         @map("organization_id")
+  id             String                         @id @default(uuid()) @db.Uuid
+  organizationId String                         @map("organization_id") @db.Uuid
   name           String
   code           String
   createdAt      DateTime                       @default(now()) @map("created_at")
@@ -396,9 +393,9 @@ model ReportingDepartment {
 }
 
 model ReportingPosition {
-  id             String                         @id @default(uuid())
-  organizationId String                         @map("organization_id")
-  departmentId   String?                        @map("department_id")
+  id             String                         @id @default(uuid()) @db.Uuid
+  organizationId String                         @map("organization_id") @db.Uuid
+  departmentId   String?                        @map("department_id") @db.Uuid
   name           String
   code           String
   createdAt      DateTime                       @default(now()) @map("created_at")
@@ -413,13 +410,13 @@ model ReportingPosition {
 }
 
 model ReportingEmployee {
-  id             String                         @id @default(uuid())
-  organizationId String                         @map("organization_id")
-  membershipId   String                         @unique @map("membership_id")
+  id             String                         @id @default(uuid()) @db.Uuid
+  organizationId String                         @map("organization_id") @db.Uuid
+  membershipId   String                         @unique @map("membership_id") @db.Uuid
   employeeCode   String                         @map("employee_code")
   displayName    String                         @map("display_name")
-  departmentId   String?                        @map("department_id")
-  positionId     String?                        @map("position_id")
+  departmentId   String?                        @map("department_id") @db.Uuid
+  positionId     String?                        @map("position_id") @db.Uuid
   status         String                         @default("active")
   createdAt      DateTime                       @default(now()) @map("created_at")
   updatedAt      DateTime                       @updatedAt @map("updated_at")
@@ -437,15 +434,15 @@ model ReportingEmployee {
 }
 
 model ReportingDailyReport {
-  id           String             @id @default(uuid())
-  organizationId String           @map("organization_id")
-  employeeId   String             @map("employee_id")
+  id           String             @id @default(uuid()) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  employeeId   String             @map("employee_id") @db.Uuid
   reportDate   String             @map("report_date")
-  activityText String             @map("activity_text")
+  activityText String             @db.Text @map("activity_text")
   location     String?
   timeIn       String?            @map("time_in")
   timeOut      String?            @map("time_out")
-  comments     String?           
+  comments     String?            @db.Text
   createdAt    DateTime           @default(now()) @map("created_at")
   updatedAt    DateTime           @updatedAt @map("updated_at")
   organization SaaSOrganization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -457,16 +454,16 @@ model ReportingDailyReport {
 }
 
 model ReportingMonthlyReport {
-  id                 String             @id @default(uuid())
-  organizationId     String             @map("organization_id")
-  employeeId         String             @map("employee_id")
+  id                 String             @id @default(uuid()) @db.Uuid
+  organizationId     String             @map("organization_id") @db.Uuid
+  employeeId         String             @map("employee_id") @db.Uuid
   month              String
   reportData         Json               @map("report_data")
   totalReports       Int                @map("total_reports")
   totalActivities    Int                @map("total_activities")
   submissionRate     Float              @map("submission_rate")
   categoryBreakdown  Json               @map("category_breakdown")
-  summary            String            
+  summary            String             @db.Text
   achievements       Json
   status             String             @default("draft")
   generatedByUserId  String?            @map("generated_by_user_id")
@@ -489,10 +486,10 @@ model ReportingMonthlyReport {
 }
 
 model ReportingReportComment {
-  id         String                 @id @default(uuid())
-  reportId   String                 @map("report_id")
+  id         String                 @id @default(uuid()) @db.Uuid
+  reportId   String                 @map("report_id") @db.Uuid
   authorUserId String               @map("author_user_id")
-  body       String                
+  body       String                 @db.Text
   createdAt  DateTime               @default(now()) @map("created_at")
   updatedAt  DateTime               @updatedAt @map("updated_at")
   report     ReportingMonthlyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
@@ -502,11 +499,11 @@ model ReportingReportComment {
 }
 
 model ReportingNotification {
-  id           String            @id @default(uuid())
-  organizationId String          @map("organization_id")
-  employeeId   String?           @map("employee_id")
+  id           String            @id @default(uuid()) @db.Uuid
+  organizationId String          @map("organization_id") @db.Uuid
+  employeeId   String?           @map("employee_id") @db.Uuid
   title        String
-  message      String           
+  message      String            @db.Text
   type         String            @default("info")
   read         Boolean           @default(false)
   createdAt    DateTime          @default(now()) @map("created_at")
