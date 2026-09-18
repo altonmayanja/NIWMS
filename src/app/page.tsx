@@ -1,3 +1,3 @@
-import MarketingPage from '@/app/marketing/page'
+import RootLandingPage from './root-landing'
 
-export default MarketingPage
+export default RootLandingPage
