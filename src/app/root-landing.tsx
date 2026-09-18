@@ -88,7 +88,7 @@ export default function MarketingPage() {
     <main className="marketing-shell min-h-screen overflow-hidden bg-[#f4f6f8] text-[#17211b]">
       <header className="reveal reveal-down sticky top-0 z-30 border-b border-[#dce4e1] bg-[#f4f6f8]/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
-          <Link href="/marketing" className="flex items-center gap-3" aria-label="Natural Intellects home">
+          <Link href="/" className="flex items-center gap-3" aria-label="Natural Intellects home">
             <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Natural%20Intellects%20LTD%20LOGO-kW8y0UnJCLLYKZinLc70NoJI9YPSup.png" alt="Natural Intellects Ltd" className="h-11 w-11 rounded-full object-cover" />
             <span className="hidden text-sm font-bold tracking-[0.1em] text-[#123c36] sm:block">NATURAL INTELLECTS</span>
           </Link>
