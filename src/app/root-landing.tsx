@@ -1,41 +1,94 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useRouter } from 'next/navigation'
+import { FormEvent, useEffect, useState } from 'react'
 import {
   ArrowRight,
   BarChart3,
   BellRing,
   CalendarRange,
   Check,
+  CheckCircle2,
   ChevronDown,
+  ChevronRight,
   ClipboardCheck,
   FileSpreadsheet,
-  Headphones,
-  LockKeyhole,
+  LayoutDashboard,
   Menu,
   Mic,
+  Play,
   Receipt,
+  Search,
+  Settings,
   ShieldCheck,
+  TrendingUp,
   UsersRound,
   X,
 } from 'lucide-react'
 import { computeQuote, type BillingInterval, type Quote } from '@/lib/billing/pricing'
 
-const features = [
-  { icon: ClipboardCheck, title: 'Daily work reporting', text: 'Give every employee a clear, low-friction place to capture meaningful work as it happens.' },
-  { icon: BarChart3, title: 'Management visibility', text: 'See submission health, recurring work, and team activity without chasing spreadsheets.' },
-  { icon: FileSpreadsheet, title: 'Monthly workbooks', text: 'Export structured reports with summaries, statistics, activities, and notes ready to share.' },
-  { icon: BellRing, title: 'Automated reminders', text: 'Keep reporting consistent with organization-aware reminders that respect local working hours.' },
-  { icon: ShieldCheck, title: 'Responsible access', text: 'Tenant-aware access, roles, and audit trails keep workforce data in the right hands.' },
-  { icon: Mic, title: 'Voice-to-text input', text: 'Capture a thought quickly, review it, then submit it as a polished daily activity entry.' },
+/* ------------------------------------------------------------------ */
+/* Content — truthful NIWMS product messaging                          */
+/* ------------------------------------------------------------------ */
+
+const NAV_LINKS: Array<[string, string]> = [
+  ['features', 'Features'],
+  ['how-it-works', 'How It Works'],
+  ['pricing', 'Pricing'],
+  ['faq', 'FAQ'],
 ]
 
-const demos = [
-  { label: 'For employees', title: 'Make the daily note easy to finish.', text: 'A focused activity capture flow helps people record outcomes, blockers, and next steps before the day disappears.', items: ['Outcome-led prompts', 'Voice-to-text input', 'Draft before submit'] },
-  { label: 'For managers', title: 'See where attention belongs.', text: 'A concise management view surfaces reporting health and patterns without turning work into noise.', items: ['Submission health', 'Team activity signals', 'Clear follow-up cues'] },
-  { label: 'For leadership', title: 'Turn activity into operating context.', text: 'Monthly summaries give leaders a dependable view of what moved, what repeated, and what needs a decision.', items: ['Structured summaries', 'Excel-ready exports', 'Auditable activity'] },
+const FEATURES = [
+  {
+    icon: ClipboardCheck,
+    title: 'Daily Employee Reporting',
+    text: 'Employees submit structured daily work activities so managers can see what is actually being done.',
+    card: 'bg-[#e9f0ee]',
+    chip: 'bg-[#123c36]',
+  },
+  {
+    icon: BarChart3,
+    title: 'Workforce Visibility',
+    text: 'Monitor submissions, missing reports, employees, departments and organizational activity.',
+    card: 'bg-[#f5eadb]',
+    chip: 'bg-[#c47b32]',
+  },
+  {
+    icon: FileSpreadsheet,
+    title: 'Monthly Reports',
+    text: 'Turn daily activity into structured monthly reports with statistics, categories and achievements.',
+    card: 'bg-[#e4ebe6]',
+    chip: 'bg-[#356247]',
+  },
+  {
+    icon: TrendingUp,
+    title: 'Reporting Intelligence',
+    text: 'Identify recurring work, dominant categories and evidence-based achievements from employee activity.',
+    card: 'bg-[#f6ecdb]',
+    chip: 'bg-[#b2761b]',
+  },
 ]
+
+const STEPS = [
+  { number: '01', title: 'Create Your Workspace', text: 'Set up your organization and workforce.' },
+  { number: '02', title: 'Add Your Team', text: 'Create departments, positions and employees.' },
+  { number: '03', title: 'Capture Daily Work', text: 'Employees submit structured daily activity reports.' },
+  { number: '04', title: 'Understand the Month', text: 'Generate monthly reports and workforce insights.' },
+]
+
+const FAQS: Array<[string, string]> = [
+  ['Do employees need training?', 'The daily activity flow is intentionally simple. Most teams can introduce it with a short walkthrough and a clear reporting expectation.'],
+  ['Can we export our monthly reports?', 'Yes. Monthly reporting is designed for structured, Excel-ready exports that include summaries, statistics, activities, and notes.'],
+  ['How are employee reports generated?', 'Employees capture their daily activities as they happen. NIWMS then compiles those entries into monthly reports with statistics, work categories, and achievements ready for management.'],
+  ['Is my organization\u2019s data isolated?', 'Yes. Data is scoped to your organization on the server, and access is role-aware. Important actions can be recorded in an audit trail for review.'],
+  ['How does the trial work?', 'Start with a 14-day trial without payment details. You set up your workspace, add your team, and use the full reporting flow before deciding anything.'],
+  ['What happens after the trial?', 'Choose the plan and billing interval that fit your organization. Because the trial requires no payment details, nothing is charged automatically.'],
+]
+
+/* ------------------------------------------------------------------ */
+/* Pricing catalog — hydrates from the billing engine                  */
+/* ------------------------------------------------------------------ */
 
 interface PlanCard {
   key: string
@@ -62,20 +115,17 @@ const INTERVALS: BillingInterval[] = ['monthly', 'quarterly', 'annual']
 
 const ugx = (amount: number) => `UGX ${Math.round(amount).toLocaleString('en-US')}`
 
-const faqs = [
-  ['Do employees need training?', 'The daily activity flow is intentionally simple. Most teams can introduce it with a short walkthrough and a clear reporting expectation.'],
-  ['Can we export our monthly reports?', 'Yes. Monthly reporting is designed for structured, Excel-ready exports that include summaries, statistics, activities, and notes.'],
-  ['How is access controlled?', 'Access is organization-scoped and role-aware. Important actions can be recorded in an audit trail for review.'],
-  ['Can we start before choosing a paid plan?', 'Yes. Start with a 14-day trial without payment details, then choose the plan and billing interval that fits your organization.'],
-]
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
 
 export default function MarketingPage() {
+  const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [activeDemo, setActiveDemo] = useState(0)
   const [interval, setInterval] = useState<BillingInterval>('annual')
   const [plans, setPlans] = useState<PlanCard[]>(FALLBACK_PLANS)
   const [activeSection, setActiveSection] = useState('features')
-  const [pointer, setPointer] = useState({ x: 50, y: 20 })
+  const [ctaEmail, setCtaEmail] = useState('')
 
   // Hydrate the catalog from the billing engine's public endpoint. If it is
   // unreachable, the fallback constants above still render truthful numbers.
@@ -107,12 +157,12 @@ export default function MarketingPage() {
   }, [])
 
   useEffect(() => {
-    const sections = ['features', 'how-it-works', 'security', 'pricing']
+    const sectionIds = NAV_LINKS.map(([id]) => id)
     const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0]
       if (visible) setActiveSection(visible.target.id)
     }, { rootMargin: '-20% 0px -65% 0px', threshold: [0.1, 0.4, 0.8] })
-    sections.forEach((id) => { const element = document.getElementById(id); if (element) observer.observe(element) })
+    sectionIds.forEach((id) => { const element = document.getElementById(id); if (element) observer.observe(element) })
     return () => observer.disconnect()
   }, [])
 
@@ -130,96 +180,515 @@ export default function MarketingPage() {
     return () => revealObserver.disconnect()
   }, [])
 
+  const onCtaSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const email = ctaEmail.trim()
+    router.push(email ? `/start-free-trial?email=${encodeURIComponent(email)}` : '/start-free-trial')
+  }
+
   return (
-    <main className="marketing-shell min-h-screen overflow-hidden bg-[#f4f6f8] text-[#17211b]" style={{ '--pointer-x': `${pointer.x}%`, '--pointer-y': `${pointer.y}%` } as CSSProperties} onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); setPointer({ x: ((event.clientX - rect.left) / rect.width) * 100, y: ((event.clientY - rect.top) / rect.height) * 100 }) }}>
-      <header className="reveal reveal-down sticky top-0 z-30 border-b border-[#dce4e1] bg-[#f4f6f8]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4 lg:px-8">
-          <Link href="/" className="flex items-center gap-3" aria-label="Natural Intellects home">
-            <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Natural%20Intellects%20LTD%20LOGO-kW8y0UnJCLLYKZinLc70NoJI9YPSup.png" alt="Natural Intellects Ltd" className="h-11 w-11 rounded-full object-cover" />
-            <span className="hidden text-sm font-bold tracking-[0.1em] text-[#123c36] sm:block">NATURAL INTELLECTS</span>
+    <main className="marketing-shell min-h-screen bg-[#f4f6f8] text-[#17211b]">
+      {/* ============================= NAV ============================= */}
+      <header className="sticky top-0 z-30 border-b border-[#dce4e1] bg-[#f4f6f8]/90 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
+          <Link href="/" className="flex items-center gap-2.5" aria-label="NIWMS by Natural Intellects — home">
+            <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Natural%20Intellects%20LTD%20LOGO-kW8y0UnJCLLYKZinLc70NoJI9YPSup.png" alt="Natural Intellects Ltd" className="h-9 w-9 rounded-full object-cover" />
+            <span className="text-lg font-bold tracking-tight text-[#123c36]">NIWMS</span>
           </Link>
-          <nav className="hidden items-center gap-7 text-sm text-[#64716f] lg:flex" aria-label="Primary navigation">
-            {[['features', 'Features'], ['how-it-works', 'How it works'], ['pricing', 'Pricing'], ['security', 'Security']].map(([id, label]) => <a key={id} href={`#${id}`} className={`border-b-2 py-2 transition-colors ${activeSection === id ? 'border-[#c47b32] text-[#123c36]' : 'border-transparent hover:text-[#123c36]'}`}>{label}</a>)}
+          <nav className="hidden items-center gap-8 text-sm font-medium text-[#5b6865] lg:flex" aria-label="Primary navigation">
+            {NAV_LINKS.map(([id, label]) => (
+              <a key={id} href={`#${id}`} className={`transition-colors hover:text-[#123c36] ${activeSection === id ? 'font-semibold text-[#123c36]' : ''}`}>{label}</a>
+            ))}
           </nav>
-          <div className="hidden items-center gap-3 lg:flex"><Link href="/login" className="rounded-full px-4 py-2.5 text-sm font-medium text-[#123c36] hover:bg-[#e9f0ee]">Log in</Link><Link href="/start-free-trial" className="rounded-full bg-[#123c36] px-5 py-2.5 text-sm font-semibold text-[#f4f6f8] shadow-sm transition-transform hover:-translate-y-0.5">Start free trial <ArrowRight className="ml-1 inline h-4 w-4" /></Link></div>
-          <button type="button" className="rounded-lg p-2 lg:hidden" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>{menuOpen ? <X /> : <Menu />}</button>
+          <div className="hidden items-center gap-2 lg:flex">
+            <Link href="/login" className="rounded-lg px-4 py-2 text-sm font-semibold text-[#123c36] transition-colors hover:bg-[#e9f0ee]">Log In</Link>
+            <Link href="/start-free-trial" className="rounded-lg bg-[#123c36] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-px hover:bg-[#1d5249]">Start Free Trial</Link>
+          </div>
+          <button type="button" className="rounded-lg p-2 text-[#123c36] lg:hidden" aria-label={menuOpen ? 'Close menu' : 'Open menu'} aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
-        {menuOpen && <nav className="flex flex-col gap-2 border-t border-[#dce4e1] px-5 py-4 text-sm lg:hidden" aria-label="Mobile navigation">{[['features', 'Features'], ['how-it-works', 'How it works'], ['pricing', 'Pricing'], ['security', 'Security']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-2 py-3 focus:outline-none focus:ring-2 focus:ring-[#c47b32]" onClick={() => setMenuOpen(false)}>{label}</a>)}<Link href="/login" className="rounded-md px-2 py-3">Log in</Link><Link href="/start-free-trial" className="rounded-md px-2 py-3 font-semibold text-[#123c36]">Start free trial <ArrowRight className="ml-1 inline h-4 w-4" /></Link></nav>}
+        {menuOpen && (
+          <nav className="border-t border-[#dce4e1] bg-[#f4f6f8] px-5 py-4 lg:hidden" aria-label="Mobile navigation">
+            <div className="flex flex-col gap-1">
+              {NAV_LINKS.map(([id, label]) => (
+                <a key={id} href={`#${id}`} className="rounded-lg px-3 py-2.5 text-sm font-medium text-[#3c4a46] hover:bg-[#e9f0ee]" onClick={() => setMenuOpen(false)}>{label}</a>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-col gap-2 border-t border-[#dce4e1] pt-3">
+              <Link href="/login" className="rounded-lg border border-[#d2ddda] bg-white px-4 py-2.5 text-center text-sm font-semibold text-[#123c36]" onClick={() => setMenuOpen(false)}>Log In</Link>
+              <Link href="/start-free-trial" className="rounded-lg bg-[#123c36] px-4 py-2.5 text-center text-sm font-semibold text-white" onClick={() => setMenuOpen(false)}>Start Free Trial</Link>
+            </div>
+          </nav>
+        )}
       </header>
 
-      <section className="reveal hero-reveal mx-auto grid max-w-7xl items-center gap-10 px-5 pb-20 pt-14 lg:grid-cols-[.86fr_1.14fr] lg:gap-8 lg:px-8 lg:pb-24 lg:pt-20">
-        <div className="relative z-10"><p className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#d2ddda] bg-white/70 px-3 py-1.5 text-xs font-semibold text-[#64716f]"><span className="h-1.5 w-1.5 rounded-full bg-[#c47b32]" /> A clearer rhythm for every workday <ArrowRight className="h-3 w-3" /></p><h1 className="max-w-xl text-balance text-5xl font-semibold leading-[.98] tracking-[-0.06em] text-[#123c36] sm:text-6xl lg:text-[4.65rem]">Make work visible.<br /><span className="text-[#c47b32]">Move teams forward.</span></h1><p className="mt-6 max-w-lg text-base leading-7 text-[#64716f] sm:text-lg">NIWMS gives organizations one calm place to capture daily work, understand reporting health, and turn workforce activity into better decisions.</p><div className="mt-8 flex flex-col gap-3 sm:flex-row"><Link href="/start-free-trial" className="inline-flex items-center justify-center rounded-lg bg-[#c47b32] px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#c47b32]/20 transition-transform hover:-translate-y-1">Start free trial <ArrowRight className="ml-2 h-4 w-4" /></Link><a href="#how-it-works" className="inline-flex items-center justify-center rounded-lg border border-[#d2ddda] bg-white/70 px-6 py-3.5 text-sm font-semibold text-[#123c36] hover:bg-white"><span className="mr-2 grid h-5 w-5 place-items-center rounded-full border border-[#c47b32] text-[9px]">▶</span>See how it works</a></div><div className="mt-7 flex items-center gap-3 text-xs text-[#738078]"><span className="flex -space-x-2"><span className="grid h-7 w-7 place-items-center rounded-full border-2 border-[#f4f6f8] bg-[#123c36] text-[9px] font-bold text-white">A</span><span className="grid h-7 w-7 place-items-center rounded-full border-2 border-[#f4f6f8] bg-[#c47b32] text-[9px] font-bold text-white">M</span><span className="grid h-7 w-7 place-items-center rounded-full border-2 border-[#f4f6f8] bg-[#738078] text-[9px] font-bold text-white">R</span></span><span>Built for teams that value useful visibility.</span></div></div>
-        <div className="hero-preview relative border border-[#cbd6cb] bg-[#123c36] p-2.5 shadow-2xl shadow-[#123c36]/20 sm:p-4"><div className="overflow-hidden rounded-lg border border-[#d2ddda] bg-white shadow-xl"><div className="flex items-center justify-between border-b border-[#dce4e1] px-4 py-3"><div className="flex items-center gap-2 text-xs font-bold text-[#123c36]"><span className="grid h-6 w-6 place-items-center rounded-md bg-[#123c36] text-[10px] text-white">N</span> NIWMS</div><div className="flex items-center gap-3 text-[10px] text-[#829086]"><span>Search reports</span><BellRing className="h-3.5 w-3.5" /></div></div><div className="grid min-h-[310px] grid-cols-[92px_1fr] sm:min-h-[360px] sm:grid-cols-[132px_1fr]"><aside className="border-r border-[#dce4e1] bg-[#f4f6f8] p-3 text-[10px] text-[#64716f]"><p className="mb-5 rounded-md bg-[#e9f0ee] px-2 py-2 font-semibold text-[#123c36]">Overview</p><p className="mb-4 px-2">Daily reports</p><p className="mb-4 px-2">Employees</p><p className="mb-4 px-2">Monthly reports</p><p className="px-2">Settings</p></aside><div className="p-4 sm:p-6"><div className="flex items-start justify-between"><div><p className="text-[10px] uppercase tracking-[.18em] text-[#829086]">Manager overview</p><h2 className="mt-1 text-lg font-semibold text-[#123c36] sm:text-2xl">Reporting health</h2></div><span className="rounded-full bg-[#e9f0ee] px-2.5 py-1 text-[10px] font-semibold text-[#356247]">This month</span></div><div className="mt-5 grid grid-cols-3 gap-2"><div className="rounded-lg border border-[#dce4e1] p-3"><p className="text-[9px] text-[#829086]">Submitted</p><p className="mt-1 text-xl font-semibold text-[#123c36]">86%</p><p className="text-[9px] text-[#356247]">+12% this week</p></div><div className="rounded-lg border border-[#dce4e1] p-3"><p className="text-[9px] text-[#829086]">Employees</p><p className="mt-1 text-xl font-semibold text-[#123c36]">24</p><p className="text-[9px] text-[#64716f]">3 teams active</p></div><div className="rounded-lg border border-[#dce4e1] p-3"><p className="text-[9px] text-[#829086]">Missing</p><p className="mt-1 text-xl font-semibold text-[#c47b32]">4</p><p className="text-[9px] text-[#64716f]">Needs follow-up</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-[1.25fr_.75fr]"><div className="rounded-lg border border-[#dce4e1] p-3"><div className="flex justify-between text-[9px] text-[#829086]"><span>Workforce activity</span><span>Last 7 days</span></div><div className="mt-5 flex h-24 items-end gap-2">{[38,52,46,68,61,82,74,94].map((height, index) => <span key={index} className="flex-1 rounded-t-sm bg-[#123c36] opacity-90" style={{ height: `${height}%` }} />)}</div></div><div className="rounded-lg border border-[#dce4e1] p-3"><p className="text-[9px] text-[#829086]">Notifications</p><p className="mt-3 text-xs font-semibold text-[#123c36]">4 reports need attention</p><p className="mt-2 text-[9px] leading-4 text-[#64716f]">Review missing submissions before monthly close.</p></div></div></div></div></div><span className="absolute -bottom-4 -left-4 rounded-lg border border-[#d2ddda] bg-white px-3 py-2 text-[10px] font-semibold text-[#123c36] shadow-lg">Monthly reports ready <Check className="ml-1 inline h-3 w-3 text-[#c47b32]" /></span></div>
+      {/* ============================= HERO ============================ */}
+      <section className="hero-reveal relative mx-auto grid max-w-7xl items-center gap-14 px-5 pb-20 pt-12 lg:grid-cols-[minmax(0,43fr)_minmax(0,57fr)] lg:gap-10 lg:px-8 lg:pb-28 lg:pt-16">
+        <div className="relative z-10">
+          <Link href="#features" className="group mb-6 inline-flex items-center gap-2 rounded-full border border-[#dce4e1] bg-white/80 py-1.5 pl-1.5 pr-3 text-xs font-medium text-[#4c5a56] shadow-sm transition-colors hover:border-[#c47b32]/40">
+            <span className="rounded-full bg-[#123c36] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">New</span>
+            Reporting intelligence is here
+            <ChevronRight className="h-3.5 w-3.5 text-[#c47b32] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </Link>
+          <h1 className="max-w-xl text-balance text-5xl font-bold leading-[1.05] tracking-[-0.035em] text-[#14201c] sm:text-6xl lg:text-[3.6rem]">
+            Turn Daily Work
+            <br />
+            <span className="text-[#c47b32]">Into Clear<br />Workforce Insight.</span>
+          </h1>
+          <p className="mt-6 max-w-lg text-base leading-7 text-[#5b6865] sm:text-lg sm:leading-8">
+            NIWMS gives organizations a structured way to capture daily employee activity, monitor reporting, and turn monthly work into clear management reports.
+          </p>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Link href="/start-free-trial" className="inline-flex items-center justify-center rounded-xl bg-[#123c36] px-6 py-3.5 text-sm font-semibold text-white shadow-lg shadow-[#123c36]/20 transition-all hover:-translate-y-0.5 hover:bg-[#1d5249]">
+              Start Free Trial <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+            </Link>
+            <a href="#how-it-works" className="inline-flex items-center justify-center gap-2.5 rounded-xl border border-[#dce4e1] bg-white px-6 py-3.5 text-sm font-semibold text-[#123c36] shadow-sm transition-colors hover:border-[#c47b32]/50 hover:bg-[#fbfcf8]">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-[#f5eadb]" aria-hidden="true">
+                <Play className="h-3 w-3 fill-[#c47b32] text-[#c47b32]" />
+              </span>
+              See How It Works
+            </a>
+          </div>
+          <p className="mt-8 flex items-center gap-2.5 text-xs font-medium text-[#738078]">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-[#356247]" aria-hidden="true" />
+            Built for organizations that need structured workforce reporting.
+          </p>
+        </div>
+        <DashboardPreview />
       </section>
 
-      <section id="features" className="scroll-mt-24 border-y border-[#dce4e1] bg-[#e9f0ee] px-5 py-20 lg:px-8"><div className="mx-auto max-w-7xl"><div className="max-w-2xl"><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">A calmer operating rhythm</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#123c36] sm:text-5xl">The reporting system people can actually keep up with.</h2></div><div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{features.slice(0, 4).map(({ icon: Icon, title, text }, index) => <article key={title} className={`reveal reveal-up rounded-2xl p-6 transition-transform hover:-translate-y-2 ${['bg-[#e9f0ee]', 'bg-[#edf1e7]', 'bg-[#f5eadb]', 'bg-[#e8eef1]'][index]}`}><span className="grid h-11 w-11 place-items-center rounded-xl bg-white/80 shadow-sm"><Icon className="h-5 w-5 text-[#123c36]" /></span><h3 className="mt-8 text-base font-semibold text-[#123c36]">{title}</h3><p className="mt-3 text-sm leading-6 text-[#64716f]">{text}</p></article>)}</div></div></section>
+      {/* =========================== FEATURES ========================== */}
+      <section id="features" className="scroll-mt-20 border-y border-[#dce4e1] bg-white px-5 py-20 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">Features</p>
+            <h2 className="mt-4 text-3xl font-bold tracking-[-0.03em] text-[#14201c] sm:text-4xl lg:text-[2.6rem] lg:leading-[1.15]">Everything you need to understand your workforce.</h2>
+          </div>
+          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {FEATURES.map(({ icon: Icon, title, text, card, chip }) => (
+              <article key={title} className={`reveal reveal-up flex flex-col rounded-2xl p-7 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-[0_18px_40px_-18px_rgba(18,60,54,0.28)] ${card}`}>
+                <span className={`grid h-12 w-12 place-items-center rounded-xl shadow-sm ${chip}`} aria-hidden="true">
+                  <Icon className="h-5.5 w-5.5 text-white" />
+                </span>
+                <h3 className="mt-7 text-center text-lg font-bold tracking-tight text-[#14201c]">{title}</h3>
+                <p className="mt-3 text-center text-sm leading-6 text-[#5b6865]">{text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
 
-      <section id="how-it-works" className="scroll-mt-24 mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28"><div className="grid gap-12 lg:grid-cols-[1.18fr_.82fr] lg:items-center"><div className="workflow-visual reveal reveal-up"><div className="rounded-2xl border border-[#dce4e1] bg-[#e9f0ee] p-5 shadow-sm"><div className="flex items-center justify-between text-xs font-semibold text-[#123c36]"><span>Workday activity</span><span className="rounded-full bg-white px-2 py-1 text-[10px] text-[#c47b32]">Live view</span></div><div className="mt-5 grid grid-cols-3 gap-2"><div className="rounded-xl bg-white p-3"><p className="text-[10px] text-[#829086]">Today</p><p className="mt-2 text-xl font-semibold text-[#123c36]">18</p><p className="mt-1 text-[10px] text-[#64716f]">reports filed</p></div><div className="rounded-xl bg-[#123c36] p-3 text-white"><p className="text-[10px] text-[#c4d0c5]">Health</p><p className="mt-2 text-xl font-semibold">86%</p><p className="mt-1 text-[10px] text-[#c4d0c5]">on track</p></div><div className="rounded-xl bg-white p-3"><p className="text-[10px] text-[#829086]">Teams</p><p className="mt-2 text-xl font-semibold text-[#123c36]">03</p><p className="mt-1 text-[10px] text-[#64716f]">active today</p></div></div><div className="mt-3 rounded-xl bg-white p-4"><div className="flex h-28 items-end gap-2">{[30,48,42,68,55,78,65,92,76].map((height, index) => <span key={index} className="flex-1 rounded-t bg-[#c47b32] opacity-80" style={{ height: `${height}%` }} />)}</div><div className="mt-3 flex justify-between text-[9px] text-[#829086]"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Today</span></div></div></div></div><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">One system, three useful views</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#123c36]">The right context for every role.</h2><p className="mt-5 leading-7 text-[#64716f]">Natural Intellects connects the daily note to the management decision without adding another maze of admin.</p><div className="mt-8 flex flex-wrap gap-2" role="tablist" aria-label="Product perspectives">{demos.map((demo, index) => <button key={demo.label} type="button" role="tab" aria-selected={activeDemo === index} onClick={() => setActiveDemo(index)} className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${activeDemo === index ? 'border-[#123c36] bg-[#123c36] text-[#f4f6f8]' : 'border-[#d2ddda] text-[#64716f] hover:bg-[#e9f0ee]'}`}>{demo.label}</button>)}</div></div><div role="tabpanel" className="reveal reveal-up rounded-2xl border border-[#dce4e1] bg-[#fbfcf8] p-6 sm:p-8"><p className="text-xs font-bold uppercase tracking-[0.2em] text-[#c47b32]">{demos[activeDemo].label}</p><h3 className="mt-4 text-3xl font-semibold tracking-[-0.04em] text-[#123c36]">{demos[activeDemo].title}</h3><p className="mt-4 max-w-xl leading-7 text-[#64716f]">{demos[activeDemo].text}</p><ul className="mt-8 grid gap-3 sm:grid-cols-3">{demos[activeDemo].items.map((item) => <li key={item} className="rounded-xl bg-[#e9f0ee] p-4 text-sm font-semibold text-[#304237]"><Check className="mb-4 h-4 w-4 text-[#c47b32]" />{item}</li>)}</ul></div></div><div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{['Create your organization', 'Add employees and teams', 'Capture daily activity', 'Monitor reporting health', 'Generate monthly insight', 'Review, share, and export'].map((step, index) => <div key={step} className="flex items-center gap-4 rounded-xl border border-[#dce4e1] p-4"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#123c36] text-sm font-semibold text-[#f4f6f8]">{index + 1}</span><span className="text-sm font-semibold text-[#304237]">{step}</span></div>)}</div></section>
-
-      <section id="security" className="scroll-mt-24 bg-[#123c36] px-5 py-20 text-[#f4f6f8] lg:px-8 lg:py-24"><div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1fr_1fr] lg:items-center"><div><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#e9b44c]">Built with care</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">Your workforce data deserves a considered home.</h2><p className="mt-5 max-w-xl leading-7 text-[#c4d0c5]">Tenant-aware access, role-based permissions, secure authentication, and auditable activity are foundational—not add-ons.</p></div><div className="grid gap-3 sm:grid-cols-2">{[['Tenant isolation', 'Customer data is scoped server-side to its organization.'], ['Role-based access', 'Permissions follow responsibility, not guesswork.'], ['Audit logging', 'Important actions leave a clear, reviewable trail.'], ['Responsible exports', 'Reports respect ownership and organization boundaries.']].map(([title, text]) => <div key={title} className="rounded-xl border border-[#3d5c49] p-5"><ShieldCheck className="h-5 w-5 text-[#e9b44c]" /><h3 className="mt-5 font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[#b6c5b8]">{text}</p></div>)}</div></div></section>
-
-      <section id="pricing" className="scroll-mt-24 mx-auto max-w-7xl px-5 py-20 lg:px-8 lg:py-28">
-        <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
-          <div><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">Simple starting points</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#123c36]">Choose the shape that fits your team.</h2><p className="mt-4 max-w-xl text-sm leading-6 text-[#64716f]">Every figure below is computed by the same billing engine that would invoice you — the amount, the VAT, the covered dates, and the renewal date are definitive, not estimates.</p></div>
+      {/* ========================= HOW IT WORKS ======================== */}
+      <section id="how-it-works" className="scroll-mt-20 px-5 py-20 lg:px-8 lg:py-28">
+        <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[minmax(0,53fr)_minmax(0,47fr)] lg:gap-16">
+          <HiwVisual />
           <div>
-            <div className="flex items-center gap-2 rounded-full border border-[#dce4e1] bg-[#e9f0ee] p-1 text-sm" role="group" aria-label="Billing interval">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">How It Works</p>
+            <h2 className="mt-4 text-3xl font-bold tracking-[-0.03em] text-[#14201c] sm:text-4xl lg:text-[2.6rem] lg:leading-[1.15]">From daily activity to management insight.</h2>
+            <div className="relative mt-10">
+              <span aria-hidden="true" className="absolute bottom-6 left-[19px] top-6 w-px bg-[#dce4e1]" />
+              {STEPS.map((step) => (
+                <div key={step.number} className="relative flex gap-5 pb-9 last:pb-0">
+                  <span className="relative z-10 grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#dce4e1] bg-[#e9f0ee] text-sm font-bold text-[#b2761b]" aria-hidden="true">{step.number}</span>
+                  <div className="pt-1">
+                    <h3 className="text-base font-bold text-[#14201c]">{step.title}</h3>
+                    <p className="mt-1.5 text-sm leading-6 text-[#5b6865]">{step.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================ PRICING ========================== */}
+      <section id="pricing" className="scroll-mt-20 border-y border-[#dce4e1] bg-white px-5 py-20 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-7xl">
+          <div className="mx-auto max-w-2xl text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">Pricing</p>
+            <h2 className="mt-4 text-3xl font-bold tracking-[-0.03em] text-[#14201c] sm:text-4xl lg:text-[2.6rem] lg:leading-[1.15]">Pricing that fits your organization.</h2>
+            <p className="mt-4 text-sm leading-6 text-[#5b6865]">Every figure below is computed by the same billing engine that would invoice you — the amount, the VAT, the covered dates, and the renewal date are definitive, not estimates.</p>
+          </div>
+          <div className="mt-9 flex justify-center">
+            <div className="flex items-center gap-1 rounded-xl border border-[#dce4e1] bg-[#f4f6f8] p-1 text-sm" role="group" aria-label="Billing interval">
               {INTERVALS.map((key) => {
                 const reference = plans.find((plan) => plan.featured && plan.monthlyPrice) ?? plans.find((plan) => plan.monthlyPrice)
                 const savePct = reference?.monthlyPrice
                   ? Math.round((1 - computeQuote({ monthlyPrice: reference.monthlyPrice, interval: key }).effectiveMonthlyPrice / reference.monthlyPrice) * 100)
                   : 0
                 return (
-                  <button key={key} type="button" aria-pressed={interval === key} onClick={() => setInterval(key)} className={`rounded-full px-4 py-2 font-semibold transition-colors ${interval === key ? 'bg-[#123c36] text-[#f4f6f8]' : 'text-[#64716f] hover:text-[#123c36]'}`}>
+                  <button key={key} type="button" aria-pressed={interval === key} onClick={() => setInterval(key)} className={`rounded-lg px-4 py-2 font-semibold transition-colors ${interval === key ? 'bg-[#123c36] text-white shadow-sm' : 'text-[#5b6865] hover:text-[#123c36]'}`}>
                     {key === 'monthly' ? 'Monthly' : key === 'quarterly' ? 'Quarterly' : 'Annual'}
-                    {savePct > 0 && <span className="ml-1.5 text-[#c47b32]">−{savePct}%</span>}
+                    {savePct > 0 && <span className={`ml-1.5 text-xs font-bold ${interval === key ? 'text-[#e9b44c]' : 'text-[#c47b32]'}`}>−{savePct}%</span>}
                   </button>
                 )
               })}
             </div>
-            <p className="mt-2 text-right text-[11px] text-[#829086]">Prices exclude VAT · 18% added at billing</p>
           </div>
-        </div>
-        <div className="mt-12 grid gap-4 lg:grid-cols-4">
-          {plans.map((plan) => {
-            const custom = plan.monthlyPrice === null
-            const quote = custom ? null : computeQuote({ monthlyPrice: plan.monthlyPrice as number, interval })
-            const savingsPct = quote && quote.monthlyEquivalentTotal > 0 ? Math.round((quote.savings / quote.monthlyEquivalentTotal) * 100) : 0
-            return (
-              <article key={plan.key} className={`reveal reveal-up flex flex-col rounded-2xl border p-6 ${plan.featured ? 'border-[#c47b32] bg-[#fbf0dc]' : 'border-[#dce4e1] bg-[#f4f6f8]'}`}>
-                <div className="flex items-center justify-between"><h3 className="text-lg font-semibold text-[#123c36]">{plan.name}</h3>{plan.featured && <span className="rounded-full bg-[#c47b32] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Popular</span>}</div>
-                {custom ? (
-                  <p className="mt-6 text-2xl font-semibold text-[#123c36]">Custom<span className="text-sm font-normal text-[#829086]"> pricing</span></p>
-                ) : (
-                  <>
-                    <p className="mt-6 text-2xl font-semibold text-[#123c36]">{ugx(quote!.effectiveMonthlyPrice)}<span className="text-sm font-normal text-[#829086]"> / month</span></p>
-                    <p className="mt-1.5 text-xs leading-5 text-[#64716f]">
-                      Billed <span className="font-semibold text-[#304237]">{ugx(quote!.total)}</span> every {quote!.monthsCovered === 1 ? 'month' : `${quote!.monthsCovered} months`} · incl. VAT {ugx(quote!.vatAmount)}
-                    </p>
-                    {quote!.savings > 0 && (
-                      <p className="mt-2 inline-flex w-fit items-center gap-1 rounded-full bg-[#e7f0e4] px-2.5 py-1 text-[11px] font-semibold text-[#356247]" aria-label={`Save ${ugx(quote!.savings)} per year compared to monthly billing`}>
-                        <Check className="h-3 w-3" /> Save {ugx(quote!.savings)} ({savingsPct}%)
+          <p className="mt-3 text-center text-[11px] text-[#829086]">Prices exclude VAT · 18% added at billing</p>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {plans.map((plan) => {
+              const custom = plan.monthlyPrice === null
+              const quote = custom ? null : computeQuote({ monthlyPrice: plan.monthlyPrice as number, interval })
+              const savingsPct = quote && quote.monthlyEquivalentTotal > 0 ? Math.round((quote.savings / quote.monthlyEquivalentTotal) * 100) : 0
+              return (
+                <article key={plan.key} className={`reveal reveal-up relative flex flex-col rounded-2xl border p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_-18px_rgba(18,60,54,0.28)] ${plan.featured ? 'border-[#c47b32] bg-[#fbf4e4] shadow-[0_14px_36px_-18px_rgba(196,123,50,0.45)]' : 'border-[#dce4e1] bg-white'}`}>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold text-[#14201c]">{plan.name}</h3>
+                    {plan.featured && <span className="rounded-full bg-[#c47b32] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Recommended</span>}
+                  </div>
+                  {custom ? (
+                    <p className="mt-6 text-3xl font-bold tracking-tight text-[#14201c]">Custom<span className="text-sm font-medium text-[#829086]"> pricing</span></p>
+                  ) : (
+                    <>
+                      <p className="mt-6 text-3xl font-bold tracking-tight text-[#14201c]">{ugx(quote!.effectiveMonthlyPrice)}<span className="text-sm font-medium text-[#829086]"> / month</span></p>
+                      <p className="mt-1.5 text-xs leading-5 text-[#5b6865]">
+                        Billed <span className="font-semibold text-[#304237]">{ugx(quote!.total)}</span> every {quote!.monthsCovered === 1 ? 'month' : `${quote!.monthsCovered} months`} · incl. VAT {ugx(quote!.vatAmount)}
                       </p>
-                    )}
-                  </>
-                )}
-                <p className="mt-3 text-sm text-[#64716f]">{plan.limit}</p>
-                <p className="mt-5 min-h-12 text-sm leading-6 text-[#64716f]">{plan.description}</p>
-                <Link href={custom ? '/start-free-trial' : `/start-free-trial?plan=${plan.key}&interval=${interval}`} className="mt-6 inline-flex items-center text-sm font-semibold text-[#123c36]">Get started <ArrowRight className="ml-2 h-4 w-4" /></Link>
-              </article>
-            )
-          })}
+                      {quote!.savings > 0 && (
+                        <p className="mt-2.5 inline-flex w-fit items-center gap-1 rounded-full bg-[#e7f0e4] px-2.5 py-1 text-[11px] font-semibold text-[#356247]" aria-label={`Save ${ugx(quote!.savings)} compared to monthly billing`}>
+                          <Check className="h-3 w-3" /> Save {ugx(quote!.savings)} ({savingsPct}%)
+                        </p>
+                      )}
+                    </>
+                  )}
+                  <p className="mt-4 text-sm font-medium text-[#304237]">{plan.limit}</p>
+                  <p className="mt-2 min-h-10 text-sm leading-6 text-[#5b6865]">{plan.description}</p>
+                  <Link href={custom ? '/start-free-trial' : `/start-free-trial?plan=${plan.key}&interval=${interval}`} className={`mt-6 inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition-all hover:-translate-y-px ${plan.featured ? 'bg-[#123c36] text-white hover:bg-[#1d5249]' : 'border border-[#d2ddda] bg-white text-[#123c36] hover:border-[#123c36]/40 hover:bg-[#f4f6f8]'}`}>
+                    Get started <ArrowRight className="ml-1.5 h-4 w-4" aria-hidden="true" />
+                  </Link>
+                </article>
+              )
+            })}
+          </div>
+          <PricingCalculator interval={interval} plans={plans} />
         </div>
-        <PricingCalculator interval={interval} plans={plans} />
       </section>
 
-      <section className="reveal reveal-up mx-auto max-w-4xl px-5 pb-20 lg:px-8"><p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">Questions, answered</p><h2 className="mt-4 text-4xl font-semibold tracking-[-0.04em] text-[#123c36]">A clearer start for your team.</h2><div className="mt-8 divide-y divide-[#dce4e1] border-y border-[#dce4e1]">{faqs.map(([question, answer]) => <details key={question} className="group py-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-6 text-base font-semibold text-[#304237] [&::-webkit-details-marker]:hidden">{question}<ChevronDown className="h-5 w-5 shrink-0 text-[#c47b32] transition-transform group-open:rotate-180" /></summary><p className="max-w-2xl pt-3 leading-7 text-[#64716f]">{answer}</p></details>)}</div></section>
+      {/* ============================== FAQ ============================ */}
+      <section id="faq" className="scroll-mt-20 px-5 py-20 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-3xl">
+          <div className="text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#c47b32]">FAQ</p>
+            <h2 className="mt-4 text-3xl font-bold tracking-[-0.03em] text-[#14201c] sm:text-4xl">Questions, answered.</h2>
+          </div>
+          <div className="mt-10 space-y-3">
+            {FAQS.map(([question, answer]) => (
+              <details key={question} className="group rounded-xl border border-[#dce4e1] bg-white px-5 py-1 transition-colors open:bg-white hover:border-[#c47b32]/40">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-6 py-4 text-[15px] font-semibold text-[#14201c] [&::-webkit-details-marker]:hidden">
+                  {question}
+                  <ChevronDown className="h-5 w-5 shrink-0 text-[#c47b32] transition-transform group-open:rotate-180" aria-hidden="true" />
+                </summary>
+                <p className="max-w-2xl pb-4 text-sm leading-6 text-[#5b6865]">{answer}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
 
-      <section className="mx-5 mb-16 rounded-[2rem] bg-[#e9f0ee] px-6 py-14 text-center lg:mx-auto lg:max-w-7xl lg:px-8"><LockKeyhole className="mx-auto h-6 w-6 text-[#c47b32]" /><h2 className="mx-auto mt-5 max-w-2xl text-4xl font-semibold tracking-[-0.04em] text-[#123c36]">Give your people less admin and your leaders more signal.</h2><p className="mx-auto mt-4 max-w-xl leading-7 text-[#64716f]">Start with a 14-day trial and see how a clearer reporting rhythm changes the way your organization operates.</p><Link href="/start-free-trial" className="mt-8 inline-flex rounded-full bg-[#123c36] px-6 py-3.5 text-sm font-semibold text-[#f4f6f8]">Start free trial <ArrowRight className="ml-2 h-4 w-4" /></Link></section>
+      {/* =========================== CTA BANNER ======================== */}
+      <section className="px-5 pb-20 lg:px-8 lg:pb-24" aria-label="Get started with NIWMS">
+        <div className="relative mx-auto max-w-7xl overflow-hidden rounded-[2rem] bg-[#123c36] px-6 py-14 text-white sm:px-10 lg:px-14 lg:py-16">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full border-[28px] border-white/[0.05]" />
+          <div aria-hidden="true" className="pointer-events-none absolute -bottom-28 -left-16 h-64 w-64 rounded-full border-[24px] border-[#c47b32]/15" />
+          <div className="relative grid items-center gap-10 lg:grid-cols-[1.15fr_1fr] lg:gap-14">
+            <div>
+              <h2 className="text-3xl font-bold leading-[1.15] tracking-[-0.03em] sm:text-4xl">Make workforce reporting part of the workflow.</h2>
+              <p className="mt-4 max-w-md text-[15px] leading-7 text-[#c4d0c5]">Start with a 14-day trial and see how NIWMS turns daily employee activity into management-ready insight.</p>
+            </div>
+            <div>
+              <form onSubmit={onCtaSubmit} className="flex flex-col gap-3 sm:flex-row">
+                <label htmlFor="cta-email" className="sr-only">Work email</label>
+                <input
+                  id="cta-email"
+                  type="email"
+                  required
+                  value={ctaEmail}
+                  onChange={(event) => setCtaEmail(event.target.value)}
+                  placeholder="Enter your work email"
+                  autoComplete="email"
+                  className="w-full flex-1 rounded-xl border border-white/20 bg-white px-4 py-3.5 text-sm text-[#14201c] outline-none transition placeholder:text-[#829086] focus:border-[#e9b44c] focus:ring-2 focus:ring-[#e9b44c]/40"
+                />
+                <button type="submit" className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-[#c47b32] px-6 py-3.5 text-sm font-semibold text-white transition-all hover:-translate-y-px hover:bg-[#b2761b]">
+                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                </button>
+              </form>
+              <p className="mt-3.5 flex items-center gap-1.5 text-xs text-[#9fb3ac]"><Check className="h-3.5 w-3.5 text-[#e9b44c]" aria-hidden="true" /> 14 days · Full features · No payment details required</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <footer className="border-t border-[#dce4e1] px-5 py-8 lg:px-8"><div className="mx-auto flex max-w-7xl flex-col justify-between gap-4 text-sm text-[#738078] sm:flex-row"><p>© {new Date().getFullYear()} Natural Intellects Ltd.</p><div className="flex flex-wrap gap-5"><a href="#security" className="hover:text-[#123c36]">Security</a><a href="#pricing" className="hover:text-[#123c36]">Pricing</a><a href="mailto:hello@naturalintellects.com" className="hover:text-[#123c36]">Contact</a><span className="flex items-center gap-1"><Headphones className="h-3.5 w-3.5" /> Support-ready</span></div></div></footer>
+      {/* ============================= FOOTER ========================== */}
+      <footer className="mt-auto border-t border-[#dce4e1] bg-white">
+        <div className="mx-auto grid max-w-7xl gap-12 px-5 py-14 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr] lg:px-8">
+          <div>
+            <Link href="/" className="flex items-center gap-2.5" aria-label="Natural Intellects home">
+              <img src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Natural%20Intellects%20LTD%20LOGO-kW8y0UnJCLLYKZinLc70NoJI9YPSup.png" alt="Natural Intellects Ltd" className="h-10 w-10 rounded-full object-cover" />
+              <span className="text-base font-bold tracking-tight text-[#14201c]">Natural Intellects</span>
+            </Link>
+            <p className="mt-4 max-w-xs text-sm leading-6 text-[#5b6865]">NIWMS is the workforce reporting platform by Natural Intellects — built to turn daily employee activity into clear management insight.</p>
+          </div>
+          <nav aria-label="Product">
+            <h3 className="text-sm font-bold text-[#14201c]">Product</h3>
+            <ul className="mt-4 space-y-2.5 text-sm text-[#5b6865]">
+              <li><a href="#features" className="transition-colors hover:text-[#123c36]">Features</a></li>
+              <li><a href="#how-it-works" className="transition-colors hover:text-[#123c36]">How It Works</a></li>
+              <li><a href="#pricing" className="transition-colors hover:text-[#123c36]">Pricing</a></li>
+            </ul>
+          </nav>
+          <nav aria-label="Company">
+            <h3 className="text-sm font-bold text-[#14201c]">Company</h3>
+            <ul className="mt-4 space-y-2.5 text-sm text-[#5b6865]">
+              <li><Link href="/" className="transition-colors hover:text-[#123c36]">Natural Intellects</Link></li>
+              <li><Link href="/start-free-trial" className="transition-colors hover:text-[#123c36]">Start Free Trial</Link></li>
+              <li><a href="mailto:hello@naturalintellects.com" className="transition-colors hover:text-[#123c36]">Contact</a></li>
+            </ul>
+          </nav>
+          <nav aria-label="Support">
+            <h3 className="text-sm font-bold text-[#14201c]">Support</h3>
+            <ul className="mt-4 space-y-2.5 text-sm text-[#5b6865]">
+              <li><a href="#faq" className="transition-colors hover:text-[#123c36]">FAQ</a></li>
+              <li><a href="mailto:hello@naturalintellects.com" className="transition-colors hover:text-[#123c36]">Contact support</a></li>
+              <li><Link href="/login" className="transition-colors hover:text-[#123c36]">Log In</Link></li>
+            </ul>
+          </nav>
+        </div>
+        <div className="border-t border-[#e4eae8]">
+          <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-3 px-5 py-6 text-xs text-[#829086] sm:flex-row lg:px-8">
+            <p>© {new Date().getFullYear()} Natural Intellects Ltd. All rights reserved.</p>
+            <p>NIWMS — Workforce reporting by Natural Intellects</p>
+          </div>
+        </div>
+      </footer>
     </main>
   )
 }
+
+/* ------------------------------------------------------------------ */
+/* Hero product preview — a large NIWMS manager dashboard              */
+/* ------------------------------------------------------------------ */
+
+const SIDEBAR_ITEMS = [
+  { icon: LayoutDashboard, label: 'Dashboard', active: true },
+  { icon: UsersRound, label: 'Employees' },
+  { icon: ClipboardCheck, label: 'Daily Reports' },
+  { icon: FileSpreadsheet, label: 'Monthly Reports' },
+  { icon: BellRing, label: 'Notifications', badge: '3' },
+  { icon: Settings, label: 'Settings' },
+]
+
+const PREVIEW_STATS = [
+  { label: 'Reports Today', value: '24', delta: '+3 vs yesterday', tone: 'text-[#356247]' },
+  { label: 'Submitted', value: '21', delta: '87.5% of team', tone: 'text-[#356247]' },
+  { label: 'Missing', value: '3', delta: 'Needs follow-up', tone: 'text-[#b2761b]' },
+  { label: 'Active Employees', value: '24', delta: 'Across 4 departments', tone: 'text-[#5b6865]' },
+]
+
+const ACTIVITY_BARS = [
+  { day: 'Mon', value: 18 },
+  { day: 'Tue', value: 21 },
+  { day: 'Wed', value: 19 },
+  { day: 'Thu', value: 24, peak: true },
+  { day: 'Fri', value: 22 },
+  { day: 'Sat', value: 12 },
+  { day: 'Sun', value: 9 },
+]
+
+const WORK_CATEGORIES = [
+  { label: 'Field work', pct: 38, color: 'bg-[#123c36]' },
+  { label: 'Client meetings', pct: 27, color: 'bg-[#38766b]' },
+  { label: 'Administration', pct: 20, color: 'bg-[#c47b32]' },
+  { label: 'Training', pct: 15, color: 'bg-[#cbd6cb]' },
+]
+
+const RECENT_REPORTS = [
+  { initials: 'SK', name: 'Sarah K.', dept: 'Operations', status: 'Submitted', time: '9:41 AM', chip: 'bg-[#e7f0e4] text-[#356247]', avatar: 'bg-[#123c36]' },
+  { initials: 'DM', name: 'David M.', dept: 'Finance', status: 'Submitted', time: '9:12 AM', chip: 'bg-[#e7f0e4] text-[#356247]', avatar: 'bg-[#356247]' },
+  { initials: 'GA', name: 'Grace A.', dept: 'Programs', status: 'Missing', time: '—', chip: 'bg-[#f5eadb] text-[#8a5a13]', avatar: 'bg-[#c47b32]' },
+  { initials: 'PO', name: 'Peter O.', dept: 'Logistics', status: 'Late', time: '8:04 AM', chip: 'bg-[#eef1f0] text-[#5b6865]', avatar: 'bg-[#7d958f]' },
+]
+
+function DashboardPreview() {
+  return (
+    <div className="hero-preview relative" data-testid="hero-dashboard">
+      <div aria-hidden="true" className="absolute -inset-x-4 -top-6 bottom-2 rounded-[2.5rem] bg-gradient-to-br from-[#123c36]/10 via-transparent to-[#c47b32]/10 blur-2xl" />
+      <div className="relative overflow-hidden rounded-2xl border border-[#d5dfdb] bg-white shadow-[0_30px_80px_-24px_rgba(18,60,54,0.4)]">
+        {/* App top bar */}
+        <div className="flex items-center justify-between border-b border-[#e4eae8] px-4 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#123c36] text-xs font-bold text-white" aria-hidden="true">N</span>
+            <span className="text-sm font-bold tracking-tight text-[#14201c]">NIWMS</span>
+            <span className="ml-1 hidden rounded-md bg-[#f4f6f8] px-2 py-1 text-[10px] font-medium text-[#5b6865] sm:block">Acme Services</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden items-center gap-1.5 rounded-lg border border-[#e4eae8] bg-[#f8faf9] px-2.5 py-1.5 text-[10px] text-[#829086] sm:flex" aria-hidden="true">
+              <Search className="h-3 w-3" /> Search reports…
+            </span>
+            <span className="relative text-[#5b6865]" aria-hidden="true">
+              <BellRing className="h-4 w-4" />
+              <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-[#c47b32]" />
+            </span>
+            <span className="grid h-7 w-7 place-items-center rounded-full bg-[#e9f0ee] text-[10px] font-bold text-[#123c36]" aria-hidden="true">DN</span>
+          </div>
+        </div>
+        <div className="grid grid-cols-[56px_1fr] sm:grid-cols-[168px_1fr]">
+          {/* Sidebar */}
+          <aside className="flex flex-col gap-1 bg-[#123c36] p-2.5 sm:p-3">
+            {SIDEBAR_ITEMS.map(({ icon: Icon, label, active, badge }) => (
+              <span key={label} className={`flex items-center gap-2 rounded-lg px-2 py-2 text-[10.5px] font-medium sm:gap-2.5 sm:px-2.5 ${active ? 'bg-white/15 text-white' : 'text-[#b9cdc5]'}`} title={label}>
+                <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                <span className="hidden truncate sm:inline">{label}</span>
+                {badge && <span className="ml-auto hidden rounded-full bg-[#c47b32] px-1.5 text-[9px] font-bold text-white sm:inline">{badge}</span>}
+              </span>
+            ))}
+          </aside>
+          {/* Main panel */}
+          <div className="min-w-0 bg-[#f7f9f7] p-3.5 sm:p-5">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <h2 className="text-base font-bold text-[#14201c] sm:text-lg">Good morning, Diana <span aria-hidden="true">👋</span></h2>
+                <p className="mt-0.5 text-[11px] text-[#829086]">Here&apos;s how reporting looks across your organization today.</p>
+              </div>
+              <span className="rounded-full border border-[#e4eae8] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#5b6865]">Today · 9:52 AM</span>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+              {PREVIEW_STATS.map((stat) => (
+                <div key={stat.label} className="rounded-xl border border-[#e4eae8] bg-white p-3">
+                  <p className="text-[10px] font-medium text-[#829086]">{stat.label}</p>
+                  <p className="mt-1 text-xl font-bold tracking-tight text-[#14201c] sm:text-2xl">{stat.value}</p>
+                  <p className={`mt-0.5 text-[9.5px] font-medium ${stat.tone}`}>{stat.delta}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2.5 grid gap-2.5 lg:grid-cols-[1.5fr_1fr]">
+              {/* Reporting activity */}
+              <div className="rounded-xl border border-[#e4eae8] bg-white p-3.5 sm:p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-[#14201c]">Reporting Activity</p>
+                  <span className="text-[10px] font-medium text-[#829086]">Last 7 days</span>
+                </div>
+                <div className="mt-3 flex h-20 items-end gap-2 sm:h-24" aria-hidden="true">
+                  {ACTIVITY_BARS.map((bar) => (
+                    <span key={bar.day} className={`w-full flex-1 rounded-t-md opacity-90 ${bar.peak ? 'bg-[#c47b32]' : 'bg-[#123c36]'}`} style={{ height: `${(bar.value / 24) * 100}%` }} />
+                  ))}
+                </div>
+                <div className="mt-1 flex gap-2 text-center text-[8.5px] font-medium text-[#829086]" aria-hidden="true">
+                  {ACTIVITY_BARS.map((bar) => <span key={bar.day} className="flex-1">{bar.day}</span>)}
+                </div>
+                <div className="mt-3 border-t border-[#eef1f0] pt-3">
+                  <div className="flex h-1.5 w-full overflow-hidden rounded-full" aria-hidden="true">
+                    {WORK_CATEGORIES.map((cat) => <span key={cat.label} className={cat.color} style={{ width: `${cat.pct}%` }} />)}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[9px] font-medium text-[#5b6865]">
+                    {WORK_CATEGORIES.map((cat) => (
+                      <span key={cat.label} className="flex items-center gap-1">
+                        <span className={`h-1.5 w-1.5 rounded-full ${cat.color}`} aria-hidden="true" /> {cat.label} {cat.pct}%
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* Recent reports */}
+              <div className="rounded-xl border border-[#e4eae8] bg-white p-3.5 sm:p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-[#14201c]">Recent Reports</p>
+                  <span className="text-[10px] font-semibold text-[#c47b32]">View all</span>
+                </div>
+                <ul className="mt-3 space-y-2.5">
+                  {RECENT_REPORTS.map((report) => (
+                    <li key={report.name} className="flex items-center gap-2.5">
+                      <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[9px] font-bold text-white ${report.avatar}`} aria-hidden="true">{report.initials}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[11px] font-semibold text-[#14201c]">{report.name}</span>
+                        <span className="block text-[9.5px] text-[#829086]">{report.dept}</span>
+                      </span>
+                      <span className="text-right">
+                        <span className={`inline-block rounded-full px-2 py-0.5 text-[9px] font-bold ${report.chip}`}>{report.status}</span>
+                        <span className="mt-0.5 block text-[9px] text-[#829086]">{report.time}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Floating status chip — subtle controlled overlap */}
+      <div className="float-chip absolute -bottom-5 left-6 flex items-center gap-2.5 rounded-xl border border-[#e4eae8] bg-white px-3.5 py-2.5 shadow-[0_16px_40px_-14px_rgba(18,60,54,0.35)] sm:left-9">
+        <CheckCircle2 className="h-4.5 w-4.5 text-[#356247]" aria-hidden="true" />
+        <span>
+          <span className="block text-[11px] font-bold text-[#14201c]">Monthly report ready</span>
+          <span className="block text-[9.5px] text-[#829086]">August · 24 employees · Excel export</span>
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* How-it-works visual — the daily capture flow with layered chips     */
+/* ------------------------------------------------------------------ */
+
+function HiwVisual() {
+  return (
+    <div className="hiw-visual relative">
+      <div className="rounded-3xl border border-[#dce4e1] bg-gradient-to-br from-white via-white to-[#e9f0ee] p-5 pb-14 shadow-[0_20px_50px_-24px_rgba(18,60,54,0.25)] sm:p-7 sm:pb-16">
+        <div className="flex items-center gap-2.5">
+          <p className="text-sm font-bold text-[#14201c]">Daily Activity Report</p>
+          <span className="rounded-full bg-[#f5eadb] px-2.5 py-1 text-[10px] font-bold text-[#8a5a13]">Draft</span>
+        </div>
+        <div className="mt-4 rounded-2xl border border-[#e4eae8] bg-white p-4 shadow-sm sm:p-5">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[#123c36] text-[10px] font-bold text-white" aria-hidden="true">SB</span>
+            <span>
+              <span className="block text-xs font-bold text-[#14201c]">Sarah B. · Operations</span>
+              <span className="block text-[10px] text-[#829086]">Today · Auto-saves as she types</span>
+            </span>
+          </div>
+          <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-[#829086]">What did you accomplish today?</p>
+          <p className="mt-2 rounded-xl border border-[#e4eae8] bg-[#f8faf9] p-3.5 text-[12px] leading-5 text-[#3c4a46]">
+            Completed the quarterly stock reconciliation, flagged two variances for the finance team, and shared the summary sheet with department heads.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <span className="rounded-full bg-[#e9f0ee] px-2.5 py-1 text-[10px] font-semibold text-[#356247]">Field work</span>
+            <span className="rounded-full bg-[#f5eadb] px-2.5 py-1 text-[10px] font-semibold text-[#8a5a13]">Reporting</span>
+          </div>
+          <div className="mt-4 flex items-center justify-between border-t border-[#eef1f0] pt-3.5">
+            <span className="flex items-center gap-2 text-[10px] font-medium text-[#5b6865]">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-[#f5eadb]" aria-hidden="true"><Mic className="h-3 w-3 text-[#b2761b]" /></span>
+              Voice note attached · 0:42
+              <span className="flex items-end gap-0.5" aria-hidden="true">
+                {[6, 10, 7, 12, 8, 11, 5, 9].map((height, index) => <span key={index} className="w-0.5 rounded-full bg-[#c47b32]/70" style={{ height: `${height}px` }} />)}
+              </span>
+            </span>
+            <span className="rounded-lg bg-[#123c36] px-3.5 py-2 text-[11px] font-bold text-white">Submit report</span>
+          </div>
+        </div>
+      </div>
+      {/* Layered product chips — straddling the container edges over background, like the reference photo cards */}
+      <div className="float-chip absolute -right-2 top-16 w-44 rounded-xl border border-[#e4eae8] bg-white p-3 shadow-[0_16px_40px_-14px_rgba(18,60,54,0.35)] sm:-right-5 sm:top-20">
+        <div className="flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-[#f5eadb]" aria-hidden="true"><FileSpreadsheet className="h-3.5 w-3.5 text-[#b2761b]" /></span>
+          <span className="text-[11px] font-bold text-[#14201c]">Monthly report</span>
+        </div>
+        <p className="mt-1.5 text-[10px] leading-4 text-[#5b6865]">August is compiled and ready to export.</p>
+        <p className="mt-1.5 flex items-center gap-1 text-[10px] font-bold text-[#356247]"><Check className="h-3 w-3" aria-hidden="true" /> Ready</p>
+      </div>
+      <div className="float-chip absolute -bottom-4 left-8 w-40 rounded-xl border border-[#e4eae8] bg-white p-3 shadow-[0_16px_40px_-14px_rgba(18,60,54,0.35)] sm:left-16">
+        <p className="text-[10px] font-medium text-[#829086]">Reporting health</p>
+        <p className="mt-0.5 text-xl font-bold tracking-tight text-[#14201c]">92%</p>
+        <p className="mt-0.5 flex items-center gap-1 text-[10px] font-semibold text-[#356247]"><TrendingUp className="h-3 w-3" aria-hidden="true" /> On track this week</p>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Interactive quote calculator                                        */
+/* ------------------------------------------------------------------ */
 
 interface QuoteResponse {
   plan: { key: string; name: string; monthlyPrice: number; maxEmployees: number | null; customPricing: boolean }
@@ -266,18 +735,18 @@ function PricingCalculator({ interval, plans }: { interval: BillingInterval; pla
   const trialHref = `/start-free-trial?plan=${selectedPlan?.key ?? 'business'}&interval=${interval}&seats=${seats}`
 
   return (
-    <div className="reveal reveal-up mt-6 overflow-hidden rounded-2xl border border-[#cbd6cb] bg-white shadow-sm" data-testid="pricing-calculator">
+    <div className="reveal reveal-up mt-6 overflow-hidden rounded-2xl border border-[#dce4e1] bg-white shadow-[0_18px_44px_-24px_rgba(18,60,54,0.25)]" data-testid="pricing-calculator">
       <div className="grid gap-0 lg:grid-cols-[1fr_1.1fr]">
         <div className="border-b border-[#dce4e1] p-6 sm:p-8 lg:border-b-0 lg:border-r">
           <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#c47b32]"><UsersRound className="h-4 w-4" /> Size your team</p>
-          <h3 className="mt-3 text-2xl font-semibold text-[#123c36]">See your real number before you commit.</h3>
-          <p className="mt-2 text-sm leading-6 text-[#64716f]">Slide to your team size. The calculator picks the plan that fits and quotes the exact amount, dates, and renewal.</p>
+          <h3 className="mt-3 text-2xl font-bold tracking-[-0.02em] text-[#14201c]">See your real number before you commit.</h3>
+          <p className="mt-2 text-sm leading-6 text-[#5b6865]">Slide to your team size. The calculator picks the plan that fits and quotes the exact amount, dates, and renewal.</p>
           <div className="mt-7 flex items-end justify-between"><label htmlFor="seats" className="text-sm font-semibold text-[#304237]">Employees</label><span className="rounded-lg bg-[#e9f0ee] px-3 py-1 text-sm font-bold text-[#123c36]" aria-live="polite">{seats}</span></div>
           <input id="seats" type="range" min={1} max={100} step={1} value={seats} onChange={(event) => setSeats(Number(event.target.value))} className="mt-3 h-2 w-full cursor-pointer accent-[#c47b32]" aria-valuemin={1} aria-valuemax={100} aria-valuenow={seats} />
           <div className="mt-1 flex justify-between text-[11px] text-[#829086]"><span>1</span><span>25</span><span>50</span><span>75</span><span>100+</span></div>
           <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label="Plan">
             {pricedPlans.map((plan) => (
-              <button key={plan.key} type="button" aria-pressed={selectedPlan?.key === plan.key} onClick={() => setPlanKey(plan.key)} className={`rounded-full border px-3.5 py-2 text-xs font-semibold transition-colors ${selectedPlan?.key === plan.key ? 'border-[#123c36] bg-[#123c36] text-[#f4f6f8]' : 'border-[#d2ddda] text-[#64716f] hover:bg-[#e9f0ee]'}`}>
+              <button key={plan.key} type="button" aria-pressed={selectedPlan?.key === plan.key} onClick={() => setPlanKey(plan.key)} className={`rounded-full border px-3.5 py-2 text-xs font-semibold transition-colors ${selectedPlan?.key === plan.key ? 'border-[#123c36] bg-[#123c36] text-white' : 'border-[#d2ddda] text-[#5b6865] hover:bg-[#e9f0ee]'}`}>
                 {plan.name}
                 {plan.maxEmployees !== null && <span className="ml-1 opacity-70">≤{plan.maxEmployees}</span>}
               </button>
@@ -291,15 +760,15 @@ function PricingCalculator({ interval, plans }: { interval: BillingInterval; pla
             <>
               <div className="mt-4 flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm font-semibold text-[#304237]">{result?.plan.name} · {quote.intervalLabel} billing · {seats} seat{seats === 1 ? '' : 's'}</p>
-                <p className="text-3xl font-semibold tracking-[-0.03em] text-[#123c36]">{ugx(quote.total)}</p>
+                <p className="text-3xl font-bold tracking-[-0.03em] text-[#14201c]">{ugx(quote.total)}</p>
               </div>
               <p className="mt-1 text-xs text-[#829086]">Due today, VAT inclusive</p>
               <dl className="mt-5 space-y-2.5 text-sm">
-                <div className="flex justify-between gap-4"><dt className="text-[#64716f]">Effective monthly rate</dt><dd className="font-semibold text-[#304237]">{ugx(quote.effectiveMonthlyPrice)}</dd></div>
-                <div className="flex justify-between gap-4"><dt className="text-[#64716f]">Subtotal ({quote.monthsCovered} {quote.monthsCovered === 1 ? 'month' : 'months'})</dt><dd className="text-[#304237]">{ugx(quote.subtotal)}</dd></div>
-                <div className="flex justify-between gap-4"><dt className="text-[#64716f]">VAT ({Math.round(quote.vatRate * 100)}%)</dt><dd className="text-[#304237]">{ugx(quote.vatAmount)}</dd></div>
-                <div className="flex justify-between gap-4 border-t border-[#dce4e1] pt-2.5"><dt className="flex items-center gap-1.5 text-[#64716f]"><CalendarRange className="h-4 w-4 text-[#c47b32]" /> Period covered</dt><dd className="text-right font-semibold text-[#304237]">{quote.periodStartLabel} → {quote.periodEndLabel}</dd></div>
-                <div className="flex justify-between gap-4"><dt className="text-[#64716f]">Renews on</dt><dd className="font-semibold text-[#304237]">{quote.periodEndLabel}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-[#5b6865]">Effective monthly rate</dt><dd className="font-semibold text-[#304237]">{ugx(quote.effectiveMonthlyPrice)}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-[#5b6865]">Subtotal ({quote.monthsCovered} {quote.monthsCovered === 1 ? 'month' : 'months'})</dt><dd className="text-[#304237]">{ugx(quote.subtotal)}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-[#5b6865]">VAT ({Math.round(quote.vatRate * 100)}%)</dt><dd className="text-[#304237]">{ugx(quote.vatAmount)}</dd></div>
+                <div className="flex justify-between gap-4 border-t border-[#dce4e1] pt-2.5"><dt className="flex items-center gap-1.5 text-[#5b6865]"><CalendarRange className="h-4 w-4 text-[#c47b32]" /> Period covered</dt><dd className="text-right font-semibold text-[#304237]">{quote.periodStartLabel} → {quote.periodEndLabel}</dd></div>
+                <div className="flex justify-between gap-4"><dt className="text-[#5b6865]">Renews on</dt><dd className="font-semibold text-[#304237]">{quote.periodEndLabel}</dd></div>
                 {quote.savings > 0 && (
                   <div className="flex justify-between gap-4 rounded-lg bg-[#e7f0e4] px-3 py-2"><dt className="font-semibold text-[#356247]">You save vs monthly billing</dt><dd className="font-bold text-[#356247]">{ugx(quote.savings)} ({quote.savingsPercent}%)</dd></div>
                 )}

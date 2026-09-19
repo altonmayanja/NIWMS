@@ -37,6 +37,9 @@ export default function StartFreeTrialPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
+    // Work email carried from the marketing page's CTA banner (?email=).
+    const emailParam = params.get('email')
+    if (emailParam) setContactEmail(emailParam.slice(0, 200))
     const planKey = params.get('plan')
     const interval = params.get('interval')
     if (!planKey) return

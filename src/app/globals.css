@@ -112,7 +112,8 @@
   html, body {
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
+    /* `clip` (not `hidden`) so position:sticky marketing nav keeps working. */
+    overflow-x: clip;
   }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -194,50 +195,25 @@
   transition: background-position 180ms ease-out;
 }
 .marketing-shell > * { position: relative; z-index: 1; }
+.marketing-shell h1, .marketing-shell h2 { text-wrap: balance; }
+.marketing-shell section { position: relative; }
 .marketing-shell .hero-preview {
-  transform: perspective(1200px) rotateY(-3deg) rotateX(1deg);
-  transition: transform 500ms cubic-bezier(.22,1,.36,1), box-shadow 500ms ease;
+  transform: perspective(1400px) rotateY(-2.5deg);
+  transition: transform 600ms cubic-bezier(.22,1,.36,1), box-shadow 600ms ease;
 }
 .marketing-shell .hero-preview:hover {
-  transform: perspective(1200px) rotateY(0deg) rotateX(0deg) translateY(-7px);
-  box-shadow: 0 30px 70px rgba(18, 60, 54, .2);
+  transform: perspective(1400px) rotateY(0deg) translateY(-6px);
+  box-shadow: 0 36px 84px -20px rgba(18, 60, 54, .35);
 }
-.marketing-shell h1 { text-wrap: balance; }
-.marketing-shell section { position: relative; }
-.marketing-shell section::after { display: none; }
-.marketing-shell #features > div > div:first-child,
-.marketing-shell #pricing > div:first-child,
-.marketing-shell #how-it-works > div:first-child { max-width: 680px; margin-inline: auto; text-align: center; }
-.marketing-shell #features > div > div:first-child p,
-.marketing-shell #pricing > div:first-child p { text-align: center; }
-.marketing-shell #how-it-works > div:first-child { text-align: left; }
-.marketing-shell #how-it-works > div:first-child {
-  grid-template-columns: minmax(0, 1.18fr) minmax(280px, .82fr);
+.marketing-shell .float-chip {
+  transition: transform 350ms cubic-bezier(.22,1,.36,1), box-shadow 350ms ease;
 }
-.marketing-shell #how-it-works > div:first-child > .workflow-visual {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-}
-.marketing-shell #how-it-works > div:first-child > div:nth-child(2),
-.marketing-shell #how-it-works > div:first-child > div:nth-child(3) {
-  grid-column: 2;
-}
-.marketing-shell #how-it-works > div:first-child > div:nth-child(3) { min-height: 240px; }
-.marketing-shell section:not(#security) + section.mx-5 {
-  background: #123c36;
-  color: #f4f6f8;
-  box-shadow: 0 18px 42px rgba(18, 60, 54, .12);
-}
-@media (max-width: 1023px) {
-  .marketing-shell #how-it-works > div:first-child { grid-template-columns: 1fr; }
-  .marketing-shell #how-it-works > div:first-child > .workflow-visual,
-  .marketing-shell #how-it-works > div:first-child > div:nth-child(2),
-  .marketing-shell #how-it-works > div:first-child > div:nth-child(3) { grid-column: auto; grid-row: auto; }
+.marketing-shell .hero-preview:hover .float-chip,
+.marketing-shell .hiw-visual:hover .float-chip {
+  transform: translateY(-3px);
 }
 @media (max-width: 639px) {
   .marketing-shell .hero-preview { transform: none; }
-  .marketing-shell .hero-preview > div { min-width: 0; }
-  .marketing-shell #how-it-works > div:first-child { text-align: left; }
 }
 
 .marketing-shell .reveal {
@@ -255,8 +231,7 @@
 .marketing-shell .reveal-up:nth-child(4) { transition-delay: 210ms; }
 .marketing-shell .reveal-up:nth-child(5) { transition-delay: 280ms; }
 .marketing-shell .reveal-up:nth-child(6) { transition-delay: 350ms; }
-.marketing-shell article,
-.marketing-shell [role='tabpanel'] {
+.marketing-shell article {
   box-shadow: 0 1px 2px rgba(16, 47, 43, 0.035), 0 10px 28px rgba(16, 47, 43, 0.025);
 }
 .marketing-shell a,
